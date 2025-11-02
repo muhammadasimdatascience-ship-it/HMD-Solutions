@@ -838,6 +838,10 @@ def main():
         unsafe_allow_html=True
     )
 
+    # Initialize session state for navigation if not exists
+    if 'menu_choice' not in st.session_state:
+        st.session_state.menu_choice = "Dashboard"
+
     # Sidebar navigation
     with st.sidebar:
         st.markdown(
@@ -851,7 +855,12 @@ def main():
 
         menu = ["Dashboard", "Chemical Stock", "Packaging", "Production", "Vendor Ledger", "Vendor Payments", "Reports",
                 "Settings", "Data Import/Export"]
-        choice = st.selectbox("Select Section", menu, label_visibility="collapsed")
+        
+        # Use session state for navigation
+        choice = st.selectbox("Select Section", menu, index=menu.index(st.session_state.menu_choice), label_visibility="collapsed")
+        
+        # Update session state when user selects from sidebar
+        st.session_state.menu_choice = choice
 
         # Quick stats in sidebar
         if st.session_state.chemicals:
@@ -885,15 +894,18 @@ def main():
             col1, col2, col3 = st.columns(3)
             with col1:
                 if st.button("🧪 Add Chemicals", use_container_width=True, key="add_chem_btn"):
-                    st.session_state.current_page = "Chemical Stock"
+                    st.session_state.menu_choice = "Chemical Stock"
+                    st.rerun()
             with col2:
                 if st.button("📦 Add Packaging", use_container_width=True, key="add_pack_btn"):
-                    st.session_state.current_page = "Packaging"
+                    st.session_state.menu_choice = "Packaging"
+                    st.rerun()
             with col3:
                 if st.button("⚙️ Setup Wizard", use_container_width=True, key="setup_btn"):
-                    st.session_state.current_page = "Settings"
+                    st.session_state.menu_choice = "Settings"
+                    st.rerun()
 
-        # Quick actions
+        # Quick actions - FIXED: Now working properly
         st.markdown('<div class="section-header">', unsafe_allow_html=True)
         st.subheader("🚀 Quick Actions")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -902,16 +914,20 @@ def main():
 
         with col1:
             if st.button("🧪 Manage Chemicals", use_container_width=True, key="manage_chem"):
-                st.session_state.current_page = "Chemical Stock"
+                st.session_state.menu_choice = "Chemical Stock"
+                st.rerun()
         with col2:
             if st.button("📦 Manage Packaging", use_container_width=True, key="manage_pack"):
-                st.session_state.current_page = "Packaging"
+                st.session_state.menu_choice = "Packaging"
+                st.rerun()
         with col3:
             if st.button("🏭 Production", use_container_width=True, key="prod_btn"):
-                st.session_state.current_page = "Production"
+                st.session_state.menu_choice = "Production"
+                st.rerun()
         with col4:
             if st.button("💰 Vendor Payments", use_container_width=True, key="vendor_pay_btn"):
-                st.session_state.current_page = "Vendor Payments"
+                st.session_state.menu_choice = "Vendor Payments"
+                st.rerun()
 
         # Dashboard cards
         total_chemicals, low_stock_count, out_of_stock_count, total_packaging = update_dashboard()
@@ -2144,4 +2160,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
