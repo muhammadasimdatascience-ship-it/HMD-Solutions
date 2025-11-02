@@ -249,6 +249,207 @@ class SettingsManager:
         conn.commit()
         conn.close()
 
+class EmployeeLedger:
+    def __init__(self):
+        init_database()
+    
+    def add_employee(self, name, initial_balance=0):
+        conn = get_db_connection()
+        c = conn.cursor()
+        employee_id = str(uuid.uuid4())
+        c.execute('INSERT INTO employees (id, name, initial_balance) VALUES (?, ?, ?)',
+                 (employee_id, name, initial_balance))
+        conn.commit()
+        conn.close()
+        return employee_id
+    
+    def get_employees(self):
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('SELECT * FROM employees ORDER BY name')
+        employees = [{'id': row[0], 'name': row[1], 'initial_balance': row[2]} for row in c.fetchall()]
+        conn.close()
+        return employees
+    
+    def add_transaction(self, employee_id, transaction_type, amount, description, date):
+        conn = get_db_connection()
+        c = conn.cursor()
+        transaction_id = str(uuid.uuid4())
+        c.execute('''
+            INSERT INTO transactions (id, employee_id, type, amount, description, date)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (transaction_id, employee_id, transaction_type, amount, description, date))
+        conn.commit()
+        conn.close()
+        return transaction_id
+    
+    def get_employee_transactions(self, employee_id, start_date=None, end_date=None):
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        query = 'SELECT * FROM transactions WHERE employee_id = ?'
+        params = [employee_id]
+        
+        if start_date and end_date:
+            query += ' AND date BETWEEN ? AND ?'
+            params.extend([start_date, end_date])
+        
+        query += ' ORDER BY date DESC'
+        
+        c.execute(query, params)
+        transactions = [{
+            'id': row[0],
+            'employee_id': row[1],
+            'type': row[2],
+            'amount': row[3],
+            'description': row[4],
+            'date': row[5]
+        } for row in c.fetchall()]
+        
+        conn.close()
+        return transactions
+    
+    def get_employee_balance(self, employee_id):
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Get initial balance
+        c.execute('SELECT initial_balance FROM employees WHERE id = ?', (employee_id,))
+        result = c.fetchone()
+        initial_balance = result[0] if result else 0
+        
+        # Calculate total expenses and payments
+        c.execute('SELECT type, SUM(amount) FROM transactions WHERE employee_id = ? GROUP BY type', (employee_id,))
+        transactions = c.fetchall()
+        
+        total_expenses = 0
+        total_payments = 0
+        
+        for trans_type, amount in transactions:
+            if trans_type == 'expense':
+                total_expenses += amount if amount else 0
+            elif trans_type == 'payment':
+                total_payments += amount if amount else 0
+        
+        conn.close()
+        
+        # Balance = Initial Balance + Expenses - Payments
+        # Positive balance means employee owes money, negative means advance
+        return initial_balance + total_expenses - total_payments
+    
+    def get_employee_summary(self, employee_id, start_date=None, end_date=None):
+        transactions = self.get_employee_transactions(employee_id, start_date, end_date)
+        
+        total_expenses = sum(t['amount'] for t in transactions if t['type'] == 'expense')
+        total_payments = sum(t['amount'] for t in transactions if t['type'] == 'payment')
+        
+        # Get initial balance for the employee
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('SELECT initial_balance FROM employees WHERE id = ?', (employee_id,))
+        result = c.fetchone()
+        initial_balance = result[0] if result else 0
+        conn.close()
+        
+        balance = initial_balance + total_expenses - total_payments
+        
+        return {
+            'total_expenses': total_expenses,
+            'total_payments': total_payments,
+            'balance': balance,
+            'transaction_count': len(transactions)
+        }
+    
+    def get_transactions(self):
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('''
+            SELECT t.*, e.name as employee_name 
+            FROM transactions t 
+            LEFT JOIN employees e ON t.employee_id = e.id 
+            ORDER BY t.date DESC
+        ''')
+        transactions = [{
+            'id': row[0],
+            'employee_id': row[1],
+            'type': row[2],
+            'amount': row[3],
+            'description': row[4],
+            'date': row[5],
+            'employee_name': row[6]
+        } for row in c.fetchall()]
+        conn.close()
+        return transactions
+
+class ExpenseTracker:
+    def __init__(self):
+        init_database()
+    
+    def add_expense(self, expense_type, description, amount, employee_name=None, date=None):
+        conn = get_db_connection()
+        c = conn.cursor()
+        expense_id = str(uuid.uuid4())
+        
+        if date is None:
+            date = datetime.now().strftime('%Y-%m-%d')
+        
+        c.execute('''
+            INSERT INTO expenses (id, type, description, amount, employee_name, date)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (expense_id, expense_type, description, amount, employee_name, date))
+        
+        conn.commit()
+        conn.close()
+        return expense_id
+    
+    def get_expenses(self, expense_type=None, start_date=None, end_date=None):
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        query = 'SELECT * FROM expenses'
+        params = []
+        
+        conditions = []
+        if expense_type:
+            conditions.append('type = ?')
+            params.append(expense_type)
+        
+        if start_date and end_date:
+            conditions.append('date BETWEEN ? AND ?')
+            params.extend([start_date, end_date])
+        
+        if conditions:
+            query += ' WHERE ' + ' AND '.join(conditions)
+        
+        query += ' ORDER BY date DESC'
+        
+        c.execute(query, params)
+        expenses = [{
+            'id': row[0],
+            'type': row[1],
+            'description': row[2],
+            'amount': row[3],
+            'employee_name': row[4],
+            'date': row[5]
+        } for row in c.fetchall()]
+        
+        conn.close()
+        return expenses
+    
+    def get_summary(self, start_date=None, end_date=None):
+        expenses = self.get_expenses(start_date=start_date, end_date=end_date)
+        
+        company_total = sum(e['amount'] for e in expenses if e['type'] == 'company')
+        employee_total = sum(e['amount'] for e in expenses if e['type'] == 'employee')
+        grand_total = company_total + employee_total
+        
+        return {
+            'company_total': company_total,
+            'employee_total': employee_total,
+            'grand_total': grand_total,
+            'expense_count': len(expenses)
+        }
+
 class PDFGenerator:
     def __init__(self):
         self.settings_manager = SettingsManager()
@@ -628,57 +829,7 @@ class PDFGenerator:
             st.error(f"Error generating PDF: {str(e)}")
             return None
 
-# ALL YOUR EXISTING CLASSES AND FUNCTIONS REMAIN EXACTLY THE SAME
-# EmployeeLedger, ExpenseTracker, and all other classes remain unchanged
-
-def main():
-    st.markdown('<div class="main-header">HMD Solutions - Business Management System</div>', unsafe_allow_html=True)
-
-    # Initialize systems
-    ledger = EmployeeLedger()
-    expense_tracker = ExpenseTracker()
-    pdf_generator = PDFGenerator()
-    settings_manager = SettingsManager()
-
-    # Sidebar navigation - ADDED SETTINGS
-    st.sidebar.markdown("""
-    <div style='background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); padding: 2rem; border-radius: 15px; color: white; text-align: center;'>
-        <h2>🚀 Navigation</h2>
-    </div>
-    """, unsafe_allow_html=True)
-
-    app_mode = st.sidebar.selectbox(
-        "Choose Application",
-        ["🏠 Dashboard", "👥 Employee Ledger", "💰 Expense Management", "📊 Reports & Analytics", "📁 Data Management", "⚙️ Settings"]
-    )
-
-    # Footer in sidebar
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("""
-    <div style='text-align: center; color: #666;'>
-        <h4>DatanexSolution</h4>
-        <p>For any query please feel free to contact:</p>
-        <p><strong>+92-3207429422</strong></p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if app_mode == "🏠 Dashboard":
-        render_dashboard(ledger, expense_tracker, pdf_generator)
-    elif app_mode == "👥 Employee Ledger":
-        render_employee_ledger(ledger, pdf_generator)
-    elif app_mode == "💰 Expense Management":
-        render_expense_dashboard(expense_tracker, ledger, pdf_generator)
-    elif app_mode == "📊 Reports & Analytics":
-        render_reports_analytics(ledger, expense_tracker, pdf_generator)
-    elif app_mode == "📁 Data Management":
-        render_data_management(ledger, expense_tracker)
-    else:  # Settings
-        render_settings(settings_manager)
-
 def render_dashboard(ledger, expense_tracker, pdf_generator):
-    # YOUR EXISTING DASHBOARD CODE REMAINS EXACTLY THE SAME
-    # Only added PDF download buttons
-    
     st.markdown('<div class="sub-header">📊 Business Dashboard</div>', unsafe_allow_html=True)
 
     # Quick stats
@@ -700,7 +851,7 @@ def render_dashboard(ledger, expense_tracker, pdf_generator):
         st.markdown(f'<div class="metric-card">Employee Expenses<br>PKR {expense_summary["employee_total"]:.2f}</div>',
                     unsafe_allow_html=True)
 
-    # PDF Download Section - NEW
+    # PDF Download Section
     st.markdown("### 📥 Quick PDF Downloads")
     col1, col2, col3, col4 = st.columns(4)
     
@@ -781,41 +932,31 @@ def render_dashboard(ledger, expense_tracker, pdf_generator):
         else:
             st.info("No expenses recorded yet")
 
-    # Quick actions - FIXED
+    # Quick actions
     st.markdown("### ⚡ Quick Actions")
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         if st.button("➕ Add New Employee", use_container_width=True, key="quick_add_emp"):
             st.session_state.quick_action = "add_employee"
-            st.rerun()
 
     with col2:
         if st.button("💸 Record Transaction", use_container_width=True, key="quick_add_trans"):
             st.session_state.quick_action = "add_transaction"
-            st.rerun()
 
     with col3:
         if st.button("💰 Add Expense", use_container_width=True, key="quick_add_exp"):
             st.session_state.quick_action = "add_expense"
-            st.rerun()
 
     with col4:
         if st.button("📊 View Reports", use_container_width=True, key="quick_reports"):
             st.session_state.quick_action = "view_reports"
-            st.rerun()
-
-    # Handle quick actions (your existing quick action handling code remains the same)
-    # ... [YOUR EXISTING QUICK ACTION HANDLING CODE]
 
 def render_employee_ledger(ledger, pdf_generator):
-    # YOUR EXISTING EMPLOYEE LEDGER CODE REMAINS EXACTLY THE SAME
-    # Only enhanced with more PDF download options
-    
     st.markdown('<div class="sub-header">👥 Employee Ledger System</div>', unsafe_allow_html=True)
     st.write("Track expenses, payments, and balances for all employees")
 
-    # PDF Download Section - NEW
+    # PDF Download Section
     st.markdown("### 📥 PDF Downloads")
     col1, col2, col3 = st.columns(3)
     
@@ -850,16 +991,153 @@ def render_employee_ledger(ledger, pdf_generator):
     tab1, tab2, tab3, tab4 = st.tabs(
         ["📋 Employee Summary", "➕ Add Employee", "💸 Record Transaction", "📊 Employee Details"])
 
-    # ... [YOUR EXISTING TAB CODE REMAINS EXACTLY THE SAME]
+    with tab1:
+        st.markdown("### Employee Summary")
+        employees = ledger.get_employees()
+        
+        if employees:
+            summary_data = []
+            for emp in employees:
+                balance = ledger.get_employee_balance(emp['id'])
+                summary_data.append({
+                    'Employee': emp['name'],
+                    'Initial Balance': emp['initial_balance'],
+                    'Current Balance': balance,
+                    'Status': 'Due' if balance > 0 else 'Advance' if balance < 0 else 'Settled'
+                })
+            
+            df = pd.DataFrame(summary_data)
+            st.dataframe(df, use_container_width=True)
+        else:
+            st.info("No employees found. Add employees to get started.")
+
+    with tab2:
+        st.markdown("### Add New Employee")
+        with st.form("add_employee_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                name = st.text_input("Employee Name")
+            with col2:
+                initial_balance = st.number_input("Initial Balance", value=0.0, step=100.0)
+            
+            if st.form_submit_button("Add Employee"):
+                if name:
+                    ledger.add_employee(name, initial_balance)
+                    st.success(f"Employee {name} added successfully!")
+                    st.rerun()
+                else:
+                    st.error("Please enter employee name")
+
+    with tab3:
+        st.markdown("### Record Transaction")
+        employees = ledger.get_employees()
+        
+        if employees:
+            with st.form("add_transaction_form"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    employee_id = st.selectbox("Select Employee", 
+                                             options=[emp['id'] for emp in employees],
+                                             format_func=lambda x: next(emp['name'] for emp in employees if emp['id'] == x))
+                    transaction_type = st.selectbox("Transaction Type", ["expense", "payment"])
+                    amount = st.number_input("Amount", min_value=0.0, step=100.0)
+                with col2:
+                    description = st.text_input("Description")
+                    date = st.date_input("Date", value=datetime.now())
+                
+                if st.form_submit_button("Record Transaction"):
+                    if description and amount > 0:
+                        ledger.add_transaction(employee_id, transaction_type, amount, description, date.isoformat())
+                        st.success("Transaction recorded successfully!")
+                        st.rerun()
+                    else:
+                        st.error("Please fill all fields correctly")
+        else:
+            st.info("No employees found. Please add employees first.")
+
+    with tab4:
+        st.markdown("### Employee Details & Ledger")
+        employees = ledger.get_employees()
+        
+        if employees:
+            selected_employee = st.selectbox("Select Employee", 
+                                           options=[emp['id'] for emp in employees],
+                                           format_func=lambda x: next(emp['name'] for emp in employees if emp['id'] == x),
+                                           key="employee_detail_select")
+            
+            if selected_employee:
+                employee_name = next(emp['name'] for emp in employees if emp['id'] == selected_employee)
+                transactions = ledger.get_employee_transactions(selected_employee)
+                summary = ledger.get_employee_summary(selected_employee)
+                
+                st.markdown(f"#### Ledger for {employee_name}")
+                
+                # Display summary
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Expenses", f"PKR {summary['total_expenses']:.2f}")
+                with col2:
+                    st.metric("Total Payments", f"PKR {summary['total_payments']:.2f}")
+                with col3:
+                    balance_status = "Due" if summary['balance'] > 0 else "Advance" if summary['balance'] < 0 else "Settled"
+                    st.metric("Current Balance", f"PKR {abs(summary['balance']):.2f}", balance_status)
+                with col4:
+                    st.metric("Total Transactions", summary['transaction_count'])
+                
+                # Date filter for transactions
+                col1, col2 = st.columns(2)
+                with col1:
+                    start_date = st.date_input("Start Date", value=datetime.now() - timedelta(days=30), key="ledger_start")
+                with col2:
+                    end_date = st.date_input("End Date", value=datetime.now(), key="ledger_end")
+                
+                if st.button("Apply Filter", key="filter_ledger"):
+                    filtered_transactions = ledger.get_employee_transactions(
+                        selected_employee, start_date.isoformat(), end_date.isoformat()
+                    )
+                    transactions = filtered_transactions
+                
+                # Download PDF for this employee
+                if st.button("📄 Download Employee Ledger PDF", key="emp_ledger_pdf"):
+                    pdf = pdf_generator.generate_employee_ledger_pdf(
+                        employee_name, transactions, summary, start_date.isoformat(), end_date.isoformat()
+                    )
+                    if pdf:
+                        pdf_output = pdf.output(dest='S').encode('latin1')
+                        st.download_button(
+                            label="Download PDF",
+                            data=pdf_output,
+                            file_name=f"ledger_{employee_name}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                            mime="application/pdf"
+                        )
+                
+                # Display transactions
+                if transactions:
+                    st.markdown("#### Transaction History")
+                    for t in transactions:
+                        with st.container():
+                            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+                            with col1:
+                                st.write(f"**{t['description']}**")
+                            with col2:
+                                st.write(t['date'])
+                            with col3:
+                                st.write(t['type'].title())
+                            with col4:
+                                amount_color = "red" if t['type'] == 'expense' else "green"
+                                st.markdown(f"<span style='color: {amount_color}; font-weight: bold;'>PKR {t['amount']:.2f}</span>", 
+                                          unsafe_allow_html=True)
+                            st.divider()
+                else:
+                    st.info("No transactions found for this employee.")
+        else:
+            st.info("No employees found. Please add employees first.")
 
 def render_expense_dashboard(expense_tracker, ledger, pdf_generator):
-    # YOUR EXISTING EXPENSE DASHBOARD CODE REMAINS EXACTLY THE SAME
-    # Only enhanced with more PDF download options
-    
     st.markdown('<div class="sub-header">💰 Expense Management</div>', unsafe_allow_html=True)
     st.write("Track and manage all company and employee expenses")
 
-    # PDF Download Section - NEW
+    # PDF Download Section
     st.markdown("### 📥 PDF Downloads")
     col1, col2, col3, col4 = st.columns(4)
     
@@ -908,15 +1186,101 @@ def render_expense_dashboard(expense_tracker, ledger, pdf_generator):
     # Tabs for different sections
     tab1, tab2, tab3 = st.tabs(["📈 Expense Overview", "➕ Add Expense", "📋 Expense List"])
 
-    # ... [YOUR EXISTING TAB CODE REMAINS EXACTLY THE SAME]
+    with tab1:
+        st.markdown("### Expense Overview")
+        expense_summary = expense_tracker.get_summary()
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Company Expenses", f"PKR {expense_summary['company_total']:.2f}")
+        with col2:
+            st.metric("Employee Expenses", f"PKR {expense_summary['employee_total']:.2f}")
+        with col3:
+            st.metric("Total Expenses", f"PKR {expense_summary['grand_total']:.2f}")
+        
+        # Expense breakdown
+        expenses = expense_tracker.get_expenses()
+        if expenses:
+            df = pd.DataFrame(expenses)
+            df['date'] = pd.to_datetime(df['date'])
+            
+            # Monthly trend
+            monthly_expenses = df.groupby([df['date'].dt.to_period('M'), 'type'])['amount'].sum().reset_index()
+            monthly_expenses['date'] = monthly_expenses['date'].astype(str)
+            
+            if PLOTLY_AVAILABLE:
+                fig = px.bar(monthly_expenses, x='date', y='amount', color='type',
+                           title="Monthly Expenses Trend", barmode='group')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.bar_chart(monthly_expenses.pivot(index='date', columns='type', values='amount'))
+
+    with tab2:
+        st.markdown("### Add New Expense")
+        with st.form("add_expense_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                expense_type = st.selectbox("Expense Type", ["company", "employee"])
+                amount = st.number_input("Amount", min_value=0.0, step=100.0)
+                date = st.date_input("Date", value=datetime.now())
+            with col2:
+                description = st.text_area("Description")
+                employee_name = st.selectbox("Employee (if employee expense)", 
+                                           options=[""] + [emp['name'] for emp in ledger.get_employees()],
+                                           disabled=expense_type != "employee")
+            
+            if st.form_submit_button("Add Expense"):
+                if description and amount > 0:
+                    emp_name = employee_name if expense_type == "employee" else None
+                    expense_tracker.add_expense(expense_type, description, amount, emp_name, date.isoformat())
+                    st.success("Expense added successfully!")
+                    st.rerun()
+                else:
+                    st.error("Please fill all fields correctly")
+
+    with tab3:
+        st.markdown("### Expense List")
+        
+        # Filter options
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            filter_type = st.selectbox("Filter by Type", ["All", "company", "employee"])
+        with col2:
+            start_date = st.date_input("Start Date", value=datetime.now() - timedelta(days=30), key="expense_start")
+        with col3:
+            end_date = st.date_input("End Date", value=datetime.now(), key="expense_end")
+        
+        # Get filtered expenses
+        expense_type_filter = None if filter_type == "All" else filter_type
+        expenses = expense_tracker.get_expenses(expense_type_filter, start_date.isoformat(), end_date.isoformat())
+        
+        if expenses:
+            for exp in expenses:
+                with st.container():
+                    col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
+                    with col1:
+                        st.write(f"**{exp['description']}**")
+                        if exp['employee_name']:
+                            st.caption(f"Employee: {exp['employee_name']}")
+                    with col2:
+                        st.write(exp['date'])
+                    with col3:
+                        type_badge = "🏢" if exp['type'] == 'company' else "👤"
+                        st.write(f"{type_badge} {exp['type'].title()}")
+                    with col4:
+                        st.write(f"PKR {exp['amount']:.2f}")
+                    with col5:
+                        if st.button("🗑️", key=f"delete_{exp['id']}"):
+                            # Add delete functionality here
+                            st.warning("Delete functionality to be implemented")
+                    st.divider()
+        else:
+            st.info("No expenses found for the selected filters.")
 
 def render_reports_analytics(ledger, expense_tracker, pdf_generator):
-    # YOUR EXISTING REPORTS CODE REMAINS EXACTLY THE SAME
-    # Only enhanced with more PDF download options
-    
     st.markdown('<div class="sub-header">📊 Reports & Analytics</div>', unsafe_allow_html=True)
 
-    # PDF Download Section - NEW
+    # PDF Download Section
     st.markdown("### 📥 Comprehensive PDF Reports")
     col1, col2, col3 = st.columns(3)
     
@@ -956,11 +1320,128 @@ def render_reports_analytics(ledger, expense_tracker, pdf_generator):
 
     tab1, tab2 = st.tabs(["📈 Analytics Dashboard", "📋 Export Data"])
 
-    # ... [YOUR EXISTING TAB CODE REMAINS EXACTLY THE SAME]
+    with tab1:
+        st.markdown("### Business Analytics")
+        
+        # Employee analytics
+        employees = ledger.get_employees()
+        if employees:
+            employee_data = []
+            for emp in employees:
+                balance = ledger.get_employee_balance(emp['id'])
+                employee_data.append({
+                    'name': emp['name'],
+                    'balance': balance,
+                    'status': 'Due' if balance > 0 else 'Advance' if balance < 0 else 'Settled'
+                })
+            
+            df_employees = pd.DataFrame(employee_data)
+            
+            if PLOTLY_AVAILABLE:
+                fig = px.bar(df_employees, x='name', y='balance', color='status',
+                           title="Employee Balances", color_discrete_map={'Due': 'red', 'Advance': 'green', 'Settled': 'blue'})
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Expense analytics
+        expenses = expense_tracker.get_expenses()
+        if expenses:
+            df_expenses = pd.DataFrame(expenses)
+            expense_by_type = df_expenses.groupby('type')['amount'].sum().reset_index()
+            
+            if PLOTLY_AVAILABLE:
+                fig = px.pie(expense_by_type, values='amount', names='type', 
+                           title="Expense Distribution by Type")
+                st.plotly_chart(fig, use_container_width=True)
+
+    with tab2:
+        st.markdown("### Data Export")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### Export Employee Data")
+            employees = ledger.get_employees()
+            if employees:
+                df_employees = pd.DataFrame(employees)
+                csv_employees = df_employees.to_csv(index=False)
+                st.download_button(
+                    label="Download Employee CSV",
+                    data=csv_employees,
+                    file_name=f"employees_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.info("No employee data to export")
+        
+        with col2:
+            st.markdown("#### Export Expense Data")
+            expenses = expense_tracker.get_expenses()
+            if expenses:
+                df_expenses = pd.DataFrame(expenses)
+                csv_expenses = df_expenses.to_csv(index=False)
+                st.download_button(
+                    label="Download Expense CSV",
+                    data=csv_expenses,
+                    file_name=f"expenses_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.info("No expense data to export")
 
 def render_data_management(ledger, expense_tracker):
-    # YOUR EXISTING DATA MANAGEMENT CODE REMAINS EXACTLY THE SAME
-    pass
+    st.markdown('<div class="sub-header">📁 Data Management</div>', unsafe_allow_html=True)
+    
+    tab1, tab2 = st.tabs(["🗃️ Database Management", "🔄 System Reset"])
+    
+    with tab1:
+        st.markdown("### Database Information")
+        
+        employees = ledger.get_employees()
+        transactions = ledger.get_transactions()
+        expenses = expense_tracker.get_expenses()
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Employees", len(employees))
+        with col2:
+            st.metric("Total Transactions", len(transactions))
+        with col3:
+            st.metric("Total Expenses", len(expenses))
+        
+        st.markdown("### Backup Data")
+        if st.button("Create Backup", key="create_backup"):
+            # Simple backup implementation
+            backup_data = {
+                'employees': employees,
+                'transactions': transactions,
+                'expenses': expenses,
+                'backup_date': datetime.now().isoformat()
+            }
+            
+            json_data = json.dumps(backup_data, indent=2)
+            st.download_button(
+                label="Download Backup",
+                data=json_data,
+                file_name=f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json"
+            )
+    
+    with tab2:
+        st.markdown("### System Reset")
+        st.warning("⚠️ This action cannot be undone!")
+        
+        if st.button("Reset All Data", type="secondary"):
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute('DELETE FROM employees')
+            c.execute('DELETE FROM transactions')
+            c.execute('DELETE FROM expenses')
+            conn.commit()
+            conn.close()
+            st.success("All data has been reset!")
+            st.rerun()
 
 def render_settings(settings_manager):
     st.markdown('<div class="sub-header">⚙️ System Settings</div>', unsafe_allow_html=True)
@@ -998,7 +1479,6 @@ def render_settings(settings_manager):
                 st.success("Settings reset to default!")
                 st.rerun()
 
-# Footer for all pages
 def render_footer():
     st.markdown("---")
     st.markdown("""
@@ -1012,6 +1492,50 @@ def render_footer():
         </p>
     </div>
     """, unsafe_allow_html=True)
+
+def main():
+    st.markdown('<div class="main-header">HMD Solutions - Business Management System</div>', unsafe_allow_html=True)
+
+    # Initialize systems
+    ledger = EmployeeLedger()
+    expense_tracker = ExpenseTracker()
+    pdf_generator = PDFGenerator()
+    settings_manager = SettingsManager()
+
+    # Sidebar navigation
+    st.sidebar.markdown("""
+    <div style='background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); padding: 2rem; border-radius: 15px; color: white; text-align: center;'>
+        <h2>🚀 Navigation</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    app_mode = st.sidebar.selectbox(
+        "Choose Application",
+        ["🏠 Dashboard", "👥 Employee Ledger", "💰 Expense Management", "📊 Reports & Analytics", "📁 Data Management", "⚙️ Settings"]
+    )
+
+    # Footer in sidebar
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("""
+    <div style='text-align: center; color: #666;'>
+        <h4>DatanexSolution</h4>
+        <p>For any query please feel free to contact:</p>
+        <p><strong>+92-3207429422</strong></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if app_mode == "🏠 Dashboard":
+        render_dashboard(ledger, expense_tracker, pdf_generator)
+    elif app_mode == "👥 Employee Ledger":
+        render_employee_ledger(ledger, pdf_generator)
+    elif app_mode == "💰 Expense Management":
+        render_expense_dashboard(expense_tracker, ledger, pdf_generator)
+    elif app_mode == "📊 Reports & Analytics":
+        render_reports_analytics(ledger, expense_tracker, pdf_generator)
+    elif app_mode == "📁 Data Management":
+        render_data_management(ledger, expense_tracker)
+    else:  # Settings
+        render_settings(settings_manager)
 
 if __name__ == "__main__":
     main()
