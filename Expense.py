@@ -333,227 +333,386 @@ class EmployeeLedger:
         conn = get_db_connection()
         c = conn.cursor()
         
-        if search_query:
-            c.execute('''
-                SELECT * FROM employees 
-                WHERE name LIKE ? OR department LIKE ? OR position LIKE ? OR email LIKE ?
-                ORDER BY name
-            ''', (f'%{search_query}%', f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'))
-        else:
-            c.execute('SELECT * FROM employees ORDER BY name')
+        try:
+            if search_query:
+                c.execute('''
+                    SELECT * FROM employees 
+                    WHERE name LIKE ? OR department LIKE ? OR position LIKE ? OR email LIKE ?
+                    ORDER BY name
+                ''', (f'%{search_query}%', f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'))
+            else:
+                c.execute('SELECT * FROM employees ORDER BY name')
+                
+            rows = c.fetchall()
+            employees = []
             
-        employees = [{
-            'id': row[0], 
-            'name': row[1], 
-            'initial_balance': row[2],
-            'phone': row[3],
-            'email': row[4],
-            'department': row[5],
-            'position': row[6],
-            'join_date': row[7]
-        } for row in c.fetchall()]
-        
-        conn.close()
-        return employees
+            for row in rows:
+                # Handle different database schemas by checking row length
+                if len(row) >= 8:  # New schema with all fields
+                    employee = {
+                        'id': row[0], 
+                        'name': row[1], 
+                        'initial_balance': row[2],
+                        'phone': row[3] if len(row) > 3 else "",
+                        'email': row[4] if len(row) > 4 else "",
+                        'department': row[5] if len(row) > 5 else "",
+                        'position': row[6] if len(row) > 6 else "",
+                        'join_date': row[7] if len(row) > 7 else datetime.now().strftime('%Y-%m-%d')
+                    }
+                else:  # Old schema with fewer fields
+                    employee = {
+                        'id': row[0], 
+                        'name': row[1], 
+                        'initial_balance': row[2] if len(row) > 2 else 0,
+                        'phone': "",
+                        'email': "",
+                        'department': "",
+                        'position': "",
+                        'join_date': datetime.now().strftime('%Y-%m-%d')
+                    }
+                employees.append(employee)
+            
+            return employees
+        except Exception as e:
+            st.error(f"Error fetching employees: {str(e)}")
+            return []
+        finally:
+            conn.close()
     
     def get_employee(self, employee_id):
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute('SELECT * FROM employees WHERE id = ?', (employee_id,))
-        row = c.fetchone()
-        conn.close()
-        
-        if row:
-            return {
-                'id': row[0], 
-                'name': row[1], 
-                'initial_balance': row[2],
-                'phone': row[3],
-                'email': row[4],
-                'department': row[5],
-                'position': row[6],
-                'join_date': row[7]
-            }
-        return None
+        try:
+            c.execute('SELECT * FROM employees WHERE id = ?', (employee_id,))
+            row = c.fetchone()
+            
+            if row:
+                if len(row) >= 8:  # New schema
+                    return {
+                        'id': row[0], 
+                        'name': row[1], 
+                        'initial_balance': row[2],
+                        'phone': row[3],
+                        'email': row[4],
+                        'department': row[5],
+                        'position': row[6],
+                        'join_date': row[7]
+                    }
+                else:  # Old schema
+                    return {
+                        'id': row[0], 
+                        'name': row[1], 
+                        'initial_balance': row[2] if len(row) > 2 else 0,
+                        'phone': "",
+                        'email': "",
+                        'department': "",
+                        'position': "",
+                        'join_date': datetime.now().strftime('%Y-%m-%d')
+                    }
+            return None
+        except Exception as e:
+            st.error(f"Error fetching employee: {str(e)}")
+            return None
+        finally:
+            conn.close()
     
     def update_employee(self, employee_id, name, initial_balance, phone, email, department, position, join_date):
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute('''
-            UPDATE employees 
-            SET name = ?, initial_balance = ?, phone = ?, email = ?, department = ?, position = ?, join_date = ?
-            WHERE id = ?
-        ''', (name, initial_balance, phone, email, department, position, join_date, employee_id))
-        conn.commit()
-        conn.close()
+        try:
+            # First check if the table has the new columns
+            c.execute("PRAGMA table_info(employees)")
+            columns = [column[1] for column in c.fetchall()]
+            
+            if 'phone' in columns and 'email' in columns and 'department' in columns and 'position' in columns and 'join_date' in columns:
+                # New schema
+                c.execute('''
+                    UPDATE employees 
+                    SET name = ?, initial_balance = ?, phone = ?, email = ?, department = ?, position = ?, join_date = ?
+                    WHERE id = ?
+                ''', (name, initial_balance, phone, email, department, position, join_date, employee_id))
+            else:
+                # Old schema - only update basic fields
+                c.execute('''
+                    UPDATE employees 
+                    SET name = ?, initial_balance = ?
+                    WHERE id = ?
+                ''', (name, initial_balance, employee_id))
+            
+            conn.commit()
+        except Exception as e:
+            st.error(f"Error updating employee: {str(e)}")
+        finally:
+            conn.close()
     
     def delete_employee(self, employee_id):
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute('DELETE FROM employees WHERE id = ?', (employee_id,))
-        conn.commit()
-        conn.close()
+        try:
+            c.execute('DELETE FROM employees WHERE id = ?', (employee_id,))
+            conn.commit()
+        except Exception as e:
+            st.error(f"Error deleting employee: {str(e)}")
+        finally:
+            conn.close()
     
     def add_transaction(self, employee_id, transaction_type, amount, description, category, date):
         conn = get_db_connection()
         c = conn.cursor()
-        transaction_id = str(uuid.uuid4())
-        c.execute('''
-            INSERT INTO transactions (id, employee_id, type, amount, description, category, date)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (transaction_id, employee_id, transaction_type, amount, description, category, date))
-        conn.commit()
-        conn.close()
-        return transaction_id
+        try:
+            transaction_id = str(uuid.uuid4())
+            c.execute('''
+                INSERT INTO transactions (id, employee_id, type, amount, description, category, date)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (transaction_id, employee_id, transaction_type, amount, description, category, date))
+            conn.commit()
+            return transaction_id
+        except Exception as e:
+            st.error(f"Error adding transaction: {str(e)}")
+            return None
+        finally:
+            conn.close()
     
     def get_employee_transactions(self, employee_id, start_date=None, end_date=None):
         conn = get_db_connection()
         c = conn.cursor()
         
-        query = 'SELECT * FROM transactions WHERE employee_id = ?'
-        params = [employee_id]
-        
-        if start_date and end_date:
-            query += ' AND date BETWEEN ? AND ?'
-            params.extend([start_date, end_date])
-        
-        query += ' ORDER BY date DESC'
-        
-        c.execute(query, params)
-        transactions = [{
-            'id': row[0],
-            'employee_id': row[1],
-            'type': row[2],
-            'amount': row[3],
-            'description': row[4],
-            'category': row[5],
-            'date': row[6]
-        } for row in c.fetchall()]
-        
-        conn.close()
-        return transactions
+        try:
+            query = 'SELECT * FROM transactions WHERE employee_id = ?'
+            params = [employee_id]
+            
+            if start_date and end_date:
+                query += ' AND date BETWEEN ? AND ?'
+                params.extend([start_date, end_date])
+            
+            query += ' ORDER BY date DESC'
+            
+            c.execute(query, params)
+            rows = c.fetchall()
+            transactions = []
+            
+            for row in rows:
+                if len(row) >= 7:  # With category
+                    transaction = {
+                        'id': row[0],
+                        'employee_id': row[1],
+                        'type': row[2],
+                        'amount': row[3],
+                        'description': row[4],
+                        'category': row[5] if len(row) > 5 else "",
+                        'date': row[6]
+                    }
+                else:  # Without category
+                    transaction = {
+                        'id': row[0],
+                        'employee_id': row[1],
+                        'type': row[2],
+                        'amount': row[3],
+                        'description': row[4],
+                        'category': "",
+                        'date': row[5] if len(row) > 5 else row[4]  # Handle different schemas
+                    }
+                transactions.append(transaction)
+            
+            return transactions
+        except Exception as e:
+            st.error(f"Error fetching transactions: {str(e)}")
+            return []
+        finally:
+            conn.close()
     
     def get_transaction(self, transaction_id):
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute('SELECT * FROM transactions WHERE id = ?', (transaction_id,))
-        row = c.fetchone()
-        conn.close()
-        
-        if row:
-            return {
-                'id': row[0],
-                'employee_id': row[1],
-                'type': row[2],
-                'amount': row[3],
-                'description': row[4],
-                'category': row[5],
-                'date': row[6]
-            }
-        return None
+        try:
+            c.execute('SELECT * FROM transactions WHERE id = ?', (transaction_id,))
+            row = c.fetchone()
+            
+            if row:
+                if len(row) >= 7:
+                    return {
+                        'id': row[0],
+                        'employee_id': row[1],
+                        'type': row[2],
+                        'amount': row[3],
+                        'description': row[4],
+                        'category': row[5],
+                        'date': row[6]
+                    }
+                else:
+                    return {
+                        'id': row[0],
+                        'employee_id': row[1],
+                        'type': row[2],
+                        'amount': row[3],
+                        'description': row[4],
+                        'category': "",
+                        'date': row[5] if len(row) > 5 else row[4]
+                    }
+            return None
+        except Exception as e:
+            st.error(f"Error fetching transaction: {str(e)}")
+            return None
+        finally:
+            conn.close()
     
     def update_transaction(self, transaction_id, employee_id, transaction_type, amount, description, category, date):
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute('''
-            UPDATE transactions 
-            SET employee_id = ?, type = ?, amount = ?, description = ?, category = ?, date = ?
-            WHERE id = ?
-        ''', (employee_id, transaction_type, amount, description, category, date, transaction_id))
-        conn.commit()
-        conn.close()
+        try:
+            # Check if category column exists
+            c.execute("PRAGMA table_info(transactions)")
+            columns = [column[1] for column in c.fetchall()]
+            
+            if 'category' in columns:
+                c.execute('''
+                    UPDATE transactions 
+                    SET employee_id = ?, type = ?, amount = ?, description = ?, category = ?, date = ?
+                    WHERE id = ?
+                ''', (employee_id, transaction_type, amount, description, category, date, transaction_id))
+            else:
+                c.execute('''
+                    UPDATE transactions 
+                    SET employee_id = ?, type = ?, amount = ?, description = ?, date = ?
+                    WHERE id = ?
+                ''', (employee_id, transaction_type, amount, description, date, transaction_id))
+            
+            conn.commit()
+        except Exception as e:
+            st.error(f"Error updating transaction: {str(e)}")
+        finally:
+            conn.close()
     
     def delete_transaction(self, transaction_id):
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute('DELETE FROM transactions WHERE id = ?', (transaction_id,))
-        conn.commit()
-        conn.close()
+        try:
+            c.execute('DELETE FROM transactions WHERE id = ?', (transaction_id,))
+            conn.commit()
+        except Exception as e:
+            st.error(f"Error deleting transaction: {str(e)}")
+        finally:
+            conn.close()
     
     def get_employee_balance(self, employee_id):
         conn = get_db_connection()
         c = conn.cursor()
         
-        # Get initial balance
-        c.execute('SELECT initial_balance FROM employees WHERE id = ?', (employee_id,))
-        result = c.fetchone()
-        initial_balance = result[0] if result else 0
-        
-        # Calculate total expenses and payments
-        c.execute('SELECT type, SUM(amount) FROM transactions WHERE employee_id = ? GROUP BY type', (employee_id,))
-        transactions = c.fetchall()
-        
-        total_expenses = 0
-        total_payments = 0
-        
-        for trans_type, amount in transactions:
-            if trans_type == 'expense':
-                total_expenses += amount if amount else 0
-            elif trans_type == 'payment':
-                total_payments += amount if amount else 0
-        
-        conn.close()
-        
-        # Balance = Initial Balance + Expenses - Payments
-        # Positive balance means employee owes money, negative means advance
-        return initial_balance + total_expenses - total_payments
+        try:
+            # Get initial balance
+            c.execute('SELECT initial_balance FROM employees WHERE id = ?', (employee_id,))
+            result = c.fetchone()
+            initial_balance = result[0] if result else 0
+            
+            # Calculate total expenses and payments
+            c.execute('SELECT type, SUM(amount) FROM transactions WHERE employee_id = ? GROUP BY type', (employee_id,))
+            transactions = c.fetchall()
+            
+            total_expenses = 0
+            total_payments = 0
+            
+            for trans_type, amount in transactions:
+                if trans_type == 'expense':
+                    total_expenses += amount if amount else 0
+                elif trans_type == 'payment':
+                    total_payments += amount if amount else 0
+            
+            # Balance = Initial Balance + Expenses - Payments
+            # Positive balance means employee owes money, negative means advance
+            return initial_balance + total_expenses - total_payments
+        except Exception as e:
+            st.error(f"Error calculating balance: {str(e)}")
+            return 0
+        finally:
+            conn.close()
     
     def get_employee_summary(self, employee_id, start_date=None, end_date=None):
-        transactions = self.get_employee_transactions(employee_id, start_date, end_date)
-        
-        total_expenses = sum(t['amount'] for t in transactions if t['type'] == 'expense')
-        total_payments = sum(t['amount'] for t in transactions if t['type'] == 'payment')
-        
-        # Get initial balance for the employee
-        conn = get_db_connection()
-        c = conn.cursor()
-        c.execute('SELECT initial_balance FROM employees WHERE id = ?', (employee_id,))
-        result = c.fetchone()
-        initial_balance = result[0] if result else 0
-        conn.close()
-        
-        balance = initial_balance + total_expenses - total_payments
-        
-        return {
-            'total_expenses': total_expenses,
-            'total_payments': total_payments,
-            'balance': balance,
-            'transaction_count': len(transactions)
-        }
+        try:
+            transactions = self.get_employee_transactions(employee_id, start_date, end_date)
+            
+            total_expenses = sum(t['amount'] for t in transactions if t['type'] == 'expense')
+            total_payments = sum(t['amount'] for t in transactions if t['type'] == 'payment')
+            
+            # Get initial balance for the employee
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute('SELECT initial_balance FROM employees WHERE id = ?', (employee_id,))
+            result = c.fetchone()
+            initial_balance = result[0] if result else 0
+            conn.close()
+            
+            balance = initial_balance + total_expenses - total_payments
+            
+            return {
+                'total_expenses': total_expenses,
+                'total_payments': total_payments,
+                'balance': balance,
+                'transaction_count': len(transactions)
+            }
+        except Exception as e:
+            st.error(f"Error getting employee summary: {str(e)}")
+            return {
+                'total_expenses': 0,
+                'total_payments': 0,
+                'balance': 0,
+                'transaction_count': 0
+            }
     
     def get_transactions(self, search_query=""):
         conn = get_db_connection()
         c = conn.cursor()
         
-        if search_query:
-            c.execute('''
-                SELECT t.*, e.name as employee_name 
-                FROM transactions t 
-                LEFT JOIN employees e ON t.employee_id = e.id 
-                WHERE t.description LIKE ? OR e.name LIKE ? OR t.category LIKE ?
-                ORDER BY t.date DESC
-            ''', (f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'))
-        else:
-            c.execute('''
-                SELECT t.*, e.name as employee_name 
-                FROM transactions t 
-                LEFT JOIN employees e ON t.employee_id = e.id 
-                ORDER BY t.date DESC
-            ''')
+        try:
+            if search_query:
+                c.execute('''
+                    SELECT t.*, e.name as employee_name 
+                    FROM transactions t 
+                    LEFT JOIN employees e ON t.employee_id = e.id 
+                    WHERE t.description LIKE ? OR e.name LIKE ? OR t.category LIKE ?
+                    ORDER BY t.date DESC
+                ''', (f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'))
+            else:
+                c.execute('''
+                    SELECT t.*, e.name as employee_name 
+                    FROM transactions t 
+                    LEFT JOIN employees e ON t.employee_id = e.id 
+                    ORDER BY t.date DESC
+                ''')
+                
+            rows = c.fetchall()
+            transactions = []
             
-        transactions = [{
-            'id': row[0],
-            'employee_id': row[1],
-            'type': row[2],
-            'amount': row[3],
-            'description': row[4],
-            'category': row[5],
-            'date': row[6],
-            'employee_name': row[7]
-        } for row in c.fetchall()]
-        
-        conn.close()
-        return transactions
+            for row in rows:
+                if len(row) >= 8:  # With employee_name
+                    transaction = {
+                        'id': row[0],
+                        'employee_id': row[1],
+                        'type': row[2],
+                        'amount': row[3],
+                        'description': row[4],
+                        'category': row[5] if len(row) > 5 else "",
+                        'date': row[6],
+                        'employee_name': row[7]
+                    }
+                else:
+                    transaction = {
+                        'id': row[0],
+                        'employee_id': row[1],
+                        'type': row[2],
+                        'amount': row[3],
+                        'description': row[4],
+                        'category': "",
+                        'date': row[5] if len(row) > 5 else row[4],
+                        'employee_name': "Unknown"
+                    }
+                transactions.append(transaction)
+            
+            return transactions
+        except Exception as e:
+            st.error(f"Error fetching transactions: {str(e)}")
+            return []
+        finally:
+            conn.close()
 
 class ExpenseTracker:
     def __init__(self):
@@ -562,111 +721,186 @@ class ExpenseTracker:
     def add_expense(self, expense_type, description, amount, category, employee_name=None, date=None, status="Pending"):
         conn = get_db_connection()
         c = conn.cursor()
-        expense_id = str(uuid.uuid4())
-        
-        if date is None:
-            date = datetime.now().strftime('%Y-%m-%d')
-        
-        c.execute('''
-            INSERT INTO expenses (id, type, description, amount, category, employee_name, date, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (expense_id, expense_type, description, amount, category, employee_name, date, status))
-        
-        conn.commit()
-        conn.close()
-        return expense_id
+        try:
+            expense_id = str(uuid.uuid4())
+            
+            if date is None:
+                date = datetime.now().strftime('%Y-%m-%d')
+            
+            c.execute('''
+                INSERT INTO expenses (id, type, description, amount, category, employee_name, date, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (expense_id, expense_type, description, amount, category, employee_name, date, status))
+            
+            conn.commit()
+            return expense_id
+        except Exception as e:
+            st.error(f"Error adding expense: {str(e)}")
+            return None
+        finally:
+            conn.close()
     
     def get_expenses(self, expense_type=None, start_date=None, end_date=None, search_query=""):
         conn = get_db_connection()
         c = conn.cursor()
         
-        query = 'SELECT * FROM expenses'
-        params = []
-        
-        conditions = []
-        if expense_type:
-            conditions.append('type = ?')
-            params.append(expense_type)
-        
-        if start_date and end_date:
-            conditions.append('date BETWEEN ? AND ?')
-            params.extend([start_date, end_date])
-        
-        if search_query:
-            conditions.append('(description LIKE ? OR category LIKE ? OR employee_name LIKE ?)')
-            params.extend([f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'])
-        
-        if conditions:
-            query += ' WHERE ' + ' AND '.join(conditions)
-        
-        query += ' ORDER BY date DESC'
-        
-        c.execute(query, params)
-        expenses = [{
-            'id': row[0],
-            'type': row[1],
-            'description': row[2],
-            'amount': row[3],
-            'category': row[4],
-            'employee_name': row[5],
-            'date': row[6],
-            'status': row[7]
-        } for row in c.fetchall()]
-        
-        conn.close()
-        return expenses
+        try:
+            query = 'SELECT * FROM expenses'
+            params = []
+            
+            conditions = []
+            if expense_type:
+                conditions.append('type = ?')
+                params.append(expense_type)
+            
+            if start_date and end_date:
+                conditions.append('date BETWEEN ? AND ?')
+                params.extend([start_date, end_date])
+            
+            if search_query:
+                conditions.append('(description LIKE ? OR category LIKE ? OR employee_name LIKE ?)')
+                params.extend([f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'])
+            
+            if conditions:
+                query += ' WHERE ' + ' AND '.join(conditions)
+            
+            query += ' ORDER BY date DESC'
+            
+            c.execute(query, params)
+            rows = c.fetchall()
+            expenses = []
+            
+            for row in rows:
+                if len(row) >= 8:  # With status
+                    expense = {
+                        'id': row[0],
+                        'type': row[1],
+                        'description': row[2],
+                        'amount': row[3],
+                        'category': row[4] if len(row) > 4 else "",
+                        'employee_name': row[5],
+                        'date': row[6],
+                        'status': row[7]
+                    }
+                else:
+                    expense = {
+                        'id': row[0],
+                        'type': row[1],
+                        'description': row[2],
+                        'amount': row[3],
+                        'category': "",
+                        'employee_name': row[4] if len(row) > 4 else "",
+                        'date': row[5] if len(row) > 5 else row[4],
+                        'status': 'Pending'
+                    }
+                expenses.append(expense)
+            
+            return expenses
+        except Exception as e:
+            st.error(f"Error fetching expenses: {str(e)}")
+            return []
+        finally:
+            conn.close()
     
     def get_expense(self, expense_id):
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute('SELECT * FROM expenses WHERE id = ?', (expense_id,))
-        row = c.fetchone()
-        conn.close()
-        
-        if row:
-            return {
-                'id': row[0],
-                'type': row[1],
-                'description': row[2],
-                'amount': row[3],
-                'category': row[4],
-                'employee_name': row[5],
-                'date': row[6],
-                'status': row[7]
-            }
-        return None
+        try:
+            c.execute('SELECT * FROM expenses WHERE id = ?', (expense_id,))
+            row = c.fetchone()
+            
+            if row:
+                if len(row) >= 8:
+                    return {
+                        'id': row[0],
+                        'type': row[1],
+                        'description': row[2],
+                        'amount': row[3],
+                        'category': row[4],
+                        'employee_name': row[5],
+                        'date': row[6],
+                        'status': row[7]
+                    }
+                else:
+                    return {
+                        'id': row[0],
+                        'type': row[1],
+                        'description': row[2],
+                        'amount': row[3],
+                        'category': "",
+                        'employee_name': row[4] if len(row) > 4 else "",
+                        'date': row[5] if len(row) > 5 else row[4],
+                        'status': 'Pending'
+                    }
+            return None
+        except Exception as e:
+            st.error(f"Error fetching expense: {str(e)}")
+            return None
+        finally:
+            conn.close()
     
     def update_expense(self, expense_id, expense_type, description, amount, category, employee_name, date, status):
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute('''
-            UPDATE expenses 
-            SET type = ?, description = ?, amount = ?, category = ?, employee_name = ?, date = ?, status = ?
-            WHERE id = ?
-        ''', (expense_type, description, amount, category, employee_name, date, status, expense_id))
-        conn.commit()
-        conn.close()
+        try:
+            # Check if category and status columns exist
+            c.execute("PRAGMA table_info(expenses)")
+            columns = [column[1] for column in c.fetchall()]
+            
+            if 'category' in columns and 'status' in columns:
+                c.execute('''
+                    UPDATE expenses 
+                    SET type = ?, description = ?, amount = ?, category = ?, employee_name = ?, date = ?, status = ?
+                    WHERE id = ?
+                ''', (expense_type, description, amount, category, employee_name, date, status, expense_id))
+            else:
+                c.execute('''
+                    UPDATE expenses 
+                    SET type = ?, description = ?, amount = ?, employee_name = ?, date = ?
+                    WHERE id = ?
+                ''', (expense_type, description, amount, employee_name, date, expense_id))
+            
+            conn.commit()
+        except Exception as e:
+            st.error(f"Error updating expense: {str(e)}")
+        finally:
+            conn.close()
     
     def delete_expense(self, expense_id):
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
-        conn.commit()
-        conn.close()
+        try:
+            c.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
+            conn.commit()
+        except Exception as e:
+            st.error(f"Error deleting expense: {str(e)}")
+        finally:
+            conn.close()
     
     def get_summary(self, start_date=None, end_date=None):
-        expenses = self.get_expenses(start_date=start_date, end_date=end_date)
-        
-        company_total = sum(e['amount'] for e in expenses if e['type'] == 'company')
-        employee_total = sum(e['amount'] for e in expenses if e['type'] == 'employee')
-        grand_total = company_total + employee_total
-        
-        return {
-            'company_total': company_total,
-            'employee_total': employee_total,
-            'grand_total': grand_total,
-            'expense_count': len(expenses)
-        }
+        try:
+            expenses = self.get_expenses(start_date=start_date, end_date=end_date)
+            
+            company_total = sum(e['amount'] for e in expenses if e['type'] == 'company')
+            employee_total = sum(e['amount'] for e in expenses if e['type'] == 'employee')
+            grand_total = company_total + employee_total
+            
+            return {
+                'company_total': company_total,
+                'employee_total': employee_total,
+                'grand_total': grand_total,
+                'expense_count': len(expenses)
+            }
+        except Exception as e:
+            st.error(f"Error getting expense summary: {str(e)}")
+            return {
+                'company_total': 0,
+                'employee_total': 0,
+                'grand_total': 0,
+                'expense_count': 0
+            }
+
+# ... [Rest of the code remains the same - PDFGenerator class and all render functions]
 
 class PDFGenerator:
     def __init__(self):
@@ -1047,6 +1281,8 @@ class PDFGenerator:
             st.error(f"Error generating PDF: {str(e)}")
             return None
 
+# ... [All the render functions remain exactly the same as in the previous version]
+
 def render_dashboard(ledger, expense_tracker, pdf_generator):
     st.markdown('<div class="sub-header">📊 Business Dashboard</div>', unsafe_allow_html=True)
 
@@ -1200,10 +1436,13 @@ def render_employee_ledger(ledger, pdf_generator):
                     
                     with col1:
                         st.write(f"**{emp['name']}**")
-                        st.caption(f"{emp['position']} • {emp['department']}")
-                        if emp['phone']:
+                        if emp.get('department') or emp.get('position'):
+                            dept_info = f"{emp.get('department', '')} • {emp.get('position', '')}".strip(' •')
+                            if dept_info:
+                                st.caption(dept_info)
+                        if emp.get('phone'):
                             st.caption(f"📞 {emp['phone']}")
-                        if emp['email']:
+                        if emp.get('email'):
                             st.caption(f"📧 {emp['email']}")
                     
                     with col2:
@@ -1234,15 +1473,26 @@ def render_employee_ledger(ledger, pdf_generator):
                             col1, col2 = st.columns(2)
                             with col1:
                                 new_name = st.text_input("Name", value=emp['name'])
-                                new_phone = st.text_input("Phone", value=emp['phone'] or "")
-                                new_department = st.text_input("Department", value=emp['department'] or "")
+                                new_phone = st.text_input("Phone", value=emp.get('phone', ''))
+                                new_department = st.text_input("Department", value=emp.get('department', ''))
                             with col2:
                                 new_initial_balance = st.number_input("Initial Balance", value=emp['initial_balance'])
-                                new_email = st.text_input("Email", value=emp['email'] or "")
-                                new_position = st.text_input("Position", value=emp['position'] or "")
+                                new_email = st.text_input("Email", value=emp.get('email', ''))
+                                new_position = st.text_input("Position", value=emp.get('position', ''))
                             
-                            new_join_date = st.date_input("Join Date", 
-                                                         value=datetime.strptime(emp['join_date'], '%Y-%m-%d').date() if emp['join_date'] else datetime.now().date())
+                            join_date_value = emp.get('join_date')
+                            if join_date_value:
+                                try:
+                                    if isinstance(join_date_value, str):
+                                        join_date_value = datetime.strptime(join_date_value, '%Y-%m-%d').date()
+                                    else:
+                                        join_date_value = datetime.now().date()
+                                except:
+                                    join_date_value = datetime.now().date()
+                            else:
+                                join_date_value = datetime.now().date()
+                                
+                            new_join_date = st.date_input("Join Date", value=join_date_value)
                             
                             col1, col2 = st.columns(2)
                             with col1:
@@ -1322,8 +1572,8 @@ def render_employee_ledger(ledger, pdf_generator):
                     
                     with col1:
                         st.write(f"**{trans['description']}**")
-                        st.caption(f"👤 {trans['employee_name']} • {trans['date']}")
-                        if trans['category']:
+                        st.caption(f"👤 {trans.get('employee_name', 'Unknown')} • {trans['date']}")
+                        if trans.get('category'):
                             st.caption(f"📁 {trans['category']}")
                     
                     with col2:
@@ -1336,8 +1586,6 @@ def render_employee_ledger(ledger, pdf_generator):
                     with col3, col4, col5:
                         if st.button("✏️ Edit", key=f"edit_trans_{trans['id']}", use_container_width=True):
                             st.session_state.editing_transaction = trans['id']
-                        if st.button("📋 Details", key=f"view_trans_{trans['id']}", use_container_width=True):
-                            st.session_state.viewing_transaction = trans['id']
                         if st.button("🗑️ Delete", key=f"delete_trans_{trans['id']}", use_container_width=True):
                             st.session_state.deleting_transaction = trans['id']
                     
@@ -1433,7 +1681,7 @@ def render_employee_ledger(ledger, pdf_generator):
                             col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
                             with col1:
                                 st.write(f"**{t['description']}**")
-                                if t['category']:
+                                if t.get('category'):
                                     st.caption(f"📁 {t['category']}")
                             with col2:
                                 st.write(t['date'])
@@ -1444,9 +1692,6 @@ def render_employee_ledger(ledger, pdf_generator):
                                 amount_color = "red" if t['type'] == 'expense' else "green"
                                 st.markdown(f"<span style='color: {amount_color}; font-weight: bold;'>PKR {t['amount']:.2f}</span>", 
                                           unsafe_allow_html=True)
-                            with col5:
-                                if st.button("✏️", key=f"edit_ledger_{t['id']}"):
-                                    st.session_state.editing_ledger_transaction = t['id']
                             
                             st.divider()
                 else:
@@ -1477,18 +1722,19 @@ def render_expense_dashboard(expense_tracker, ledger, pdf_generator):
         expenses = expense_tracker.get_expenses()
         if expenses:
             df = pd.DataFrame(expenses)
-            df['date'] = pd.to_datetime(df['date'])
-            
-            # Monthly trend
-            monthly_expenses = df.groupby([df['date'].dt.to_period('M'), 'type'])['amount'].sum().reset_index()
-            monthly_expenses['date'] = monthly_expenses['date'].astype(str)
-            
-            if PLOTLY_AVAILABLE:
-                fig = px.bar(monthly_expenses, x='date', y='amount', color='type',
-                           title="📊 Monthly Expenses Trend", barmode='group')
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.bar_chart(monthly_expenses.pivot(index='date', columns='type', values='amount'))
+            if 'date' in df.columns:
+                df['date'] = pd.to_datetime(df['date'])
+                
+                # Monthly trend
+                monthly_expenses = df.groupby([df['date'].dt.to_period('M'), 'type'])['amount'].sum().reset_index()
+                monthly_expenses['date'] = monthly_expenses['date'].astype(str)
+                
+                if PLOTLY_AVAILABLE:
+                    fig = px.bar(monthly_expenses, x='date', y='amount', color='type',
+                               title="📊 Monthly Expenses Trend", barmode='group')
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.bar_chart(monthly_expenses.pivot(index='date', columns='type', values='amount'))
 
     with tab2:
         st.markdown("### ➕ Add New Expense")
@@ -1544,9 +1790,9 @@ def render_expense_dashboard(expense_tracker, ledger, pdf_generator):
                     
                     with col1:
                         st.write(f"**{exp['description']}**")
-                        if exp['employee_name']:
+                        if exp.get('employee_name'):
                             st.caption(f"👤 {exp['employee_name']}")
-                        if exp['category']:
+                        if exp.get('category'):
                             st.caption(f"📁 {exp['category']}")
                     
                     with col2:
@@ -1565,8 +1811,8 @@ def render_expense_dashboard(expense_tracker, ledger, pdf_generator):
                             'Approved': 'green', 
                             'Rejected': 'red',
                             'Paid': 'blue'
-                        }.get(exp['status'], 'gray')
-                        st.markdown(f"<span style='color: {status_color}; font-weight: bold;'>{exp['status']}</span>", 
+                        }.get(exp.get('status', 'Pending'), 'gray')
+                        st.markdown(f"<span style='color: {status_color}; font-weight: bold;'>{exp.get('status', 'Pending')}</span>", 
                                   unsafe_allow_html=True)
                     
                     with col6:
@@ -1586,21 +1832,21 @@ def render_expense_dashboard(expense_tracker, ledger, pdf_generator):
                                                       index=0 if exp['type'] == 'company' else 1,
                                                       key=f"type_{exp['id']}")
                                 new_amount = st.number_input("Amount", value=exp['amount'], key=f"amount_{exp['id']}")
-                                new_category = st.text_input("Category", value=exp['category'] or "", key=f"category_{exp['id']}")
+                                new_category = st.text_input("Category", value=exp.get('category', ''), key=f"category_{exp['id']}")
                             with col2:
                                 new_description = st.text_area("Description", value=exp['description'], key=f"desc_{exp['id']}")
                                 new_employee = st.selectbox("Employee", 
                                                           options=[""] + [emp['name'] for emp in ledger.get_employees()],
-                                                          index=0 if not exp['employee_name'] else 
+                                                          index=0 if not exp.get('employee_name') else 
                                                           [""] + [emp['name'] for emp in ledger.get_employees()].index(exp['employee_name']),
                                                           key=f"emp_{exp['id']}",
                                                           disabled=new_type != "employee")
                                 new_date = st.date_input("Date", 
-                                                       value=datetime.strptime(exp['date'], '%Y-%m-%d').date(), 
+                                                       value=datetime.strptime(exp['date'], '%Y-%m-%d').date() if isinstance(exp['date'], str) else exp['date'], 
                                                        key=f"date_{exp['id']}")
                             
                             new_status = st.selectbox("Status", ["Pending", "Approved", "Rejected", "Paid"],
-                                                    index=["Pending", "Approved", "Rejected", "Paid"].index(exp['status']),
+                                                    index=["Pending", "Approved", "Rejected", "Paid"].index(exp.get('status', 'Pending')),
                                                     key=f"status_{exp['id']}")
                             
                             col1, col2 = st.columns(2)
