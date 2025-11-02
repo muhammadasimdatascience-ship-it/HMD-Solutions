@@ -126,6 +126,22 @@ st.markdown("""
     .delete-btn {
         background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
     }
+    .quick-action-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 15px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        width: 100%;
+        margin: 0.5rem 0;
+    }
+    .quick-action-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -434,242 +450,12 @@ class ExpenseTracker:
             'grand_total': total_expenses
         }
 
-class PDFGenerator:
-    def __init__(self):
-        self.logo_path = "logo.png"
-        self.signature_path = "Asim_Signature.jpg"
-
-    def generate_employee_ledger_pdf(self, employee_name, transactions, summary, start_date=None, end_date=None):
-        if not FPDF_AVAILABLE:
-            st.error("PDF generation is not available. Please install fpdf.")
-            return None
-            
-        try:
-            pdf = FPDF()
-            pdf.add_page()
-
-            # Add logo if exists
-            if os.path.exists(self.logo_path):
-                try:
-                    pdf.image(self.logo_path, x=10, y=8, w=30)
-                except:
-                    pass
-
-            # Header with company name
-            pdf.set_font('Arial', 'B', 20)
-            pdf.cell(0, 10, 'HMD Solutions', 0, 1, 'C')
-            pdf.set_font('Arial', 'B', 16)
-            pdf.cell(0, 10, 'Employee Ledger Report', 0, 1, 'C')
-            pdf.ln(5)
-
-            # Report period
-            pdf.set_font('Arial', 'I', 12)
-            period_text = f"Period: {start_date} to {end_date}" if start_date and end_date else "All Time Period"
-            pdf.cell(0, 10, period_text, 0, 1, 'C')
-            pdf.ln(10)
-
-            # Employee information
-            pdf.set_font('Arial', 'B', 14)
-            pdf.cell(0, 10, f'Employee: {employee_name}', 0, 1)
-            pdf.set_font('Arial', '', 12)
-            pdf.cell(0, 10, f'Report Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
-            pdf.ln(5)
-
-            # Summary
-            pdf.set_font('Arial', 'B', 12)
-            pdf.cell(0, 10, 'Summary:', 0, 1)
-            pdf.set_font('Arial', '', 12)
-            pdf.cell(0, 8, f'Total Expenses: PKR {summary["total_expenses"]:.2f}', 0, 1)
-            pdf.cell(0, 8, f'Total Payments: PKR {summary["total_payments"]:.2f}', 0, 1)
-
-            # Balance with color
-            balance_status = '(Due)' if summary['balance'] > 0 else '(Advance)' if summary['balance'] < 0 else ''
-            if summary['balance'] > 0:
-                pdf.set_text_color(255, 0, 0)  # Red for due
-            else:
-                pdf.set_text_color(0, 128, 0)  # Green for advance
-                
-            pdf.cell(0, 8, f'Balance: PKR {abs(summary["balance"]):.2f} {balance_status}', 0, 1)
-            pdf.set_text_color(0, 0, 0)  # Reset to black
-            pdf.ln(10)
-
-            # Transactions table
-            if transactions:
-                pdf.set_font('Arial', 'B', 12)
-                pdf.cell(0, 10, 'Transaction History:', 0, 1)
-
-                # Table header
-                pdf.set_fill_color(79, 129, 189)
-                pdf.set_text_color(255, 255, 255)
-                pdf.cell(40, 10, 'Date', 1, 0, 'C', True)
-                pdf.cell(30, 10, 'Type', 1, 0, 'C', True)
-                pdf.cell(70, 10, 'Description', 1, 0, 'C', True)
-                pdf.cell(30, 10, 'Amount', 1, 1, 'C', True)
-
-                pdf.set_text_color(0, 0, 0)
-                pdf.set_font('Arial', '', 10)
-                for t in transactions:
-                    # Alternate row colors
-                    if transactions.index(t) % 2 == 0:
-                        pdf.set_fill_color(240, 240, 240)
-                    else:
-                        pdf.set_fill_color(255, 255, 255)
-
-                    pdf.cell(40, 8, t['date'], 1, 0, 'C', True)
-                    pdf.cell(30, 8, t['type'].title(), 1, 0, 'C', True)
-                    pdf.cell(70, 8, t['description'][:40], 1, 0, 'C', True)
-
-                    # Color code amounts
-                    if t['type'] == 'expense':
-                        pdf.set_text_color(255, 0, 0)
-                    else:
-                        pdf.set_text_color(0, 128, 0)
-                    pdf.cell(30, 8, f"PKR {t['amount']:.2f}", 1, 1, 'C', True)
-                    pdf.set_text_color(0, 0, 0)
-            else:
-                pdf.cell(0, 10, 'No transactions found for the selected period.', 0, 1)
-
-            # Footer with signatures
-            pdf.ln(15)
-
-            # Add signature if exists
-            if os.path.exists(self.signature_path):
-                try:
-                    pdf.image(self.signature_path, x=120, y=pdf.get_y(), w=30)
-                    pdf.ln(25)
-                except:
-                    pass
-
-            pdf.set_font('Arial', 'B', 12)
-            pdf.cell(80, 10, '________________________', 0, 0, 'C')
-            pdf.cell(40, 10, '', 0, 0)
-            pdf.cell(80, 10, '________________________', 0, 1, 'C')
-
-            pdf.set_font('Arial', '', 10)
-            pdf.cell(80, 5, 'Employee Signature', 0, 0, 'C')
-            pdf.cell(40, 5, '', 0, 0)
-            pdf.cell(80, 5, 'Manager Signature', 0, 1, 'C')
-
-            pdf.ln(10)
-            pdf.set_font('Arial', 'I', 8)
-            pdf.cell(0, 10, 'Generated by HMD Solutions Business Management System', 0, 1, 'C')
-
-            return pdf
-        except Exception as e:
-            st.error(f"Error generating PDF: {str(e)}")
-            return None
-
-    def generate_expense_report_pdf(self, expenses, report_type="All", employee_name=None, start_date=None,
-                                    end_date=None):
-        if not FPDF_AVAILABLE:
-            st.error("PDF generation is not available. Please install fpdf.")
-            return None
-            
-        try:
-            pdf = FPDF()
-            pdf.add_page()
-
-            # Add logo if exists
-            if os.path.exists(self.logo_path):
-                try:
-                    pdf.image(self.logo_path, x=10, y=8, w=30)
-                except:
-                    pass
-
-            # Header
-            pdf.set_font('Arial', 'B', 20)
-            pdf.cell(0, 10, 'HMD Solutions', 0, 1, 'C')
-            pdf.set_font('Arial', 'B', 16)
-
-            if report_type == "employee" and employee_name:
-                pdf.cell(0, 10, f'Expense Report - {employee_name}', 0, 1, 'C')
-            else:
-                pdf.cell(0, 10, f'{report_type.title()} Expense Report', 0, 1, 'C')
-
-            # Report period
-            pdf.set_font('Arial', 'I', 12)
-            period_text = f"Period: {start_date} to {end_date}" if start_date and end_date else "All Time Period"
-            pdf.cell(0, 10, period_text, 0, 1, 'C')
-            pdf.ln(5)
-
-            # Report details
-            pdf.set_font('Arial', '', 12)
-            pdf.cell(0, 8, f'Report Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
-            pdf.ln(5)
-
-            # Summary
-            total_amount = sum(e['amount'] for e in expenses)
-            pdf.set_font('Arial', 'B', 14)
-            pdf.cell(0, 10, f'Total Amount: PKR {total_amount:.2f}', 0, 1)
-            pdf.ln(5)
-
-            # Expenses table
-            if expenses:
-                pdf.set_font('Arial', 'B', 12)
-
-                # Table header
-                pdf.set_fill_color(79, 129, 189)
-                pdf.set_text_color(255, 255, 255)
-                pdf.cell(25, 10, 'Date', 1, 0, 'C', True)
-                pdf.cell(25, 10, 'Type', 1, 0, 'C', True)
-                pdf.cell(60, 10, 'Description', 1, 0, 'C', True)
-                pdf.cell(30, 10, 'Employee', 1, 0, 'C', True)
-                pdf.cell(30, 10, 'Amount', 1, 1, 'C', True)
-
-                pdf.set_text_color(0, 0, 0)
-                pdf.set_font('Arial', '', 10)
-                for idx, e in enumerate(expenses):
-                    # Alternate row colors
-                    if idx % 2 == 0:
-                        pdf.set_fill_color(240, 240, 240)
-                    else:
-                        pdf.set_fill_color(255, 255, 255)
-
-                    pdf.cell(25, 8, e['date'], 1, 0, 'C', True)
-                    pdf.cell(25, 8, e['type'].title(), 1, 0, 'C', True)
-                    pdf.cell(60, 8, e['description'][:35], 1, 0, 'C', True)
-                    pdf.cell(30, 8, e['employee_name'] or 'N/A', 1, 0, 'C', True)
-                    pdf.cell(30, 8, f"PKR {e['amount']:.2f}", 1, 1, 'C', True)
-            else:
-                pdf.cell(0, 10, 'No expenses found for the selected period.', 0, 1)
-
-            # Footer with signatures
-            pdf.ln(15)
-
-            # Add signature if exists
-            if os.path.exists(self.signature_path):
-                try:
-                    pdf.image(self.signature_path, x=120, y=pdf.get_y(), w=30)
-                    pdf.ln(25)
-                except:
-                    pass
-
-            pdf.set_font('Arial', 'B', 12)
-            pdf.cell(80, 10, '________________________', 0, 0, 'C')
-            pdf.cell(40, 10, '', 0, 0)
-            pdf.cell(80, 10, '________________________', 0, 1, 'C')
-
-            pdf.set_font('Arial', '', 10)
-            pdf.cell(80, 5, 'Prepared By', 0, 0, 'C')
-            pdf.cell(40, 5, '', 0, 0)
-            pdf.cell(80, 5, 'Approved By', 0, 1, 'C')
-
-            pdf.ln(10)
-            pdf.set_font('Arial', 'I', 8)
-            pdf.cell(0, 10, 'Generated by HMD Solutions Business Management System', 0, 1, 'C')
-
-            return pdf
-        except Exception as e:
-            st.error(f"Error generating PDF: {str(e)}")
-            return None
-
 def main():
     st.markdown('<div class="main-header">HMD Solutions - Business Management System</div>', unsafe_allow_html=True)
 
     # Initialize systems
     ledger = EmployeeLedger()
     expense_tracker = ExpenseTracker()
-    pdf_generator = PDFGenerator()
 
     # Sidebar navigation
     st.sidebar.markdown("""
@@ -696,11 +482,11 @@ def main():
     if app_mode == "🏠 Dashboard":
         render_dashboard(ledger, expense_tracker)
     elif app_mode == "👥 Employee Ledger":
-        render_employee_ledger(ledger, pdf_generator)
+        render_employee_ledger(ledger)
     elif app_mode == "💰 Expense Management":
-        render_expense_dashboard(expense_tracker, pdf_generator, ledger)
+        render_expense_dashboard(expense_tracker, ledger)
     elif app_mode == "📊 Reports & Analytics":
-        render_reports_analytics(ledger, expense_tracker, pdf_generator)
+        render_reports_analytics(ledger, expense_tracker)
     else:
         render_data_management(ledger, expense_tracker)
 
@@ -748,23 +534,135 @@ def render_dashboard(ledger, expense_tracker):
         else:
             st.info("No expenses recorded yet")
 
-    # Quick actions
+    # Quick actions - FIXED
     st.markdown("### ⚡ Quick Actions")
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        if st.button("➕ Add New Employee", use_container_width=True):
-            st.session_state.show_employee_form = True
+        if st.button("➕ Add New Employee", use_container_width=True, key="quick_add_emp"):
+            st.session_state.quick_action = "add_employee"
+            st.rerun()
 
     with col2:
-        if st.button("💸 Record Transaction", use_container_width=True):
-            st.session_state.show_transaction_form = True
+        if st.button("💸 Record Transaction", use_container_width=True, key="quick_add_trans"):
+            st.session_state.quick_action = "add_transaction"
+            st.rerun()
 
     with col3:
-        if st.button("📊 View Reports", use_container_width=True):
-            st.session_state.active_tab = "Reports & Analytics"
+        if st.button("💰 Add Expense", use_container_width=True, key="quick_add_exp"):
+            st.session_state.quick_action = "add_expense"
+            st.rerun()
 
-def render_employee_ledger(ledger, pdf_generator):
+    with col4:
+        if st.button("📊 View Reports", use_container_width=True, key="quick_reports"):
+            st.session_state.quick_action = "view_reports"
+            st.rerun()
+
+    # Handle quick actions
+    if st.session_state.get('quick_action') == "add_employee":
+        st.markdown("---")
+        st.markdown("### ➕ Quick Add Employee")
+        with st.form("quick_employee_form", clear_on_submit=True):
+            emp_name = st.text_input("Employee Name")
+            initial_balance = st.number_input("Initial Balance (PKR)", value=0.0, step=100.0)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.form_submit_button("Add Employee", use_container_width=True):
+                    if emp_name:
+                        ledger.add_employee(emp_name, initial_balance)
+                        st.success(f"Employee {emp_name} added successfully!")
+                        st.session_state.quick_action = None
+                        st.rerun()
+                    else:
+                        st.error("Please enter employee name")
+            with col2:
+                if st.form_submit_button("Cancel", use_container_width=True):
+                    st.session_state.quick_action = None
+                    st.rerun()
+
+    elif st.session_state.get('quick_action') == "add_transaction":
+        st.markdown("---")
+        st.markdown("### 💸 Quick Record Transaction")
+        employees = ledger.get_employees()
+        if employees:
+            with st.form("quick_transaction_form", clear_on_submit=True):
+                employee_options = {emp['name']: emp['id'] for emp in employees}
+                selected_emp = st.selectbox("Employee", list(employee_options.keys()))
+                transaction_type = st.selectbox("Transaction Type", ["Expense (Debit)", "Payment (Credit)"])
+                amount = st.number_input("Amount (PKR)", min_value=0.0, step=100.0)
+                description = st.text_input("Description")
+                date = st.date_input("Date", value=datetime.now())
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.form_submit_button("Record Transaction", use_container_width=True):
+                        emp_id = employee_options[selected_emp]
+                        type_code = 'expense' if 'Expense' in transaction_type else 'payment'
+                        ledger.add_transaction(emp_id, type_code, amount, description, date.isoformat())
+                        st.success("Transaction recorded successfully!")
+                        st.session_state.quick_action = None
+                        st.rerun()
+                with col2:
+                    if st.form_submit_button("Cancel", use_container_width=True):
+                        st.session_state.quick_action = None
+                        st.rerun()
+        else:
+            st.info("No employees available. Please add employees first.")
+            if st.button("OK", use_container_width=True):
+                st.session_state.quick_action = None
+                st.rerun()
+
+    elif st.session_state.get('quick_action') == "add_expense":
+        st.markdown("---")
+        st.markdown("### 💰 Quick Add Expense")
+        with st.form("quick_expense_form", clear_on_submit=True):
+            expense_type = st.radio("Expense Type", ["Company", "Employee"])
+            description = st.text_input("Description")
+            amount = st.number_input("Amount (PKR)", min_value=0.0, step=100.0)
+
+            employee_name = None
+            if expense_type == "Employee":
+                employees = ledger.get_employees()
+                if employees:
+                    employee_options = [emp['name'] for emp in employees]
+                    employee_name = st.selectbox("Employee", employee_options)
+                else:
+                    st.info("No employees available.")
+                    employee_name = st.text_input("Or enter employee name")
+
+            date = st.date_input("Date", value=datetime.now())
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.form_submit_button("Add Expense", use_container_width=True):
+                    if description and amount > 0:
+                        expense_tracker.add_expense(
+                            expense_type.lower(),
+                            description,
+                            amount,
+                            employee_name,
+                            date.isoformat()
+                        )
+                        st.success("Expense added successfully!")
+                        st.session_state.quick_action = None
+                        st.rerun()
+                    else:
+                        st.error("Please fill all required fields")
+            with col2:
+                if st.form_submit_button("Cancel", use_container_width=True):
+                    st.session_state.quick_action = None
+                    st.rerun()
+
+    elif st.session_state.get('quick_action') == "view_reports":
+        st.markdown("---")
+        st.markdown("### 📊 Quick Reports")
+        st.info("Navigate to 'Reports & Analytics' section for detailed reports")
+        if st.button("OK", use_container_width=True):
+            st.session_state.quick_action = None
+            st.rerun()
+
+def render_employee_ledger(ledger):
     st.markdown('<div class="sub-header">👥 Employee Ledger System</div>', unsafe_allow_html=True)
     st.write("Track expenses, payments, and balances for all employees")
 
@@ -789,7 +687,7 @@ def render_employee_ledger(ledger, pdf_generator):
                 with st.container():
                     summary = ledger.get_employee_summary(emp['id'], start_date.isoformat(), end_date.isoformat())
 
-                    col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 2, 2])
+                    col1, col2, col3, col4, col5, col6 = st.columns([3, 2, 2, 2, 2, 2])
                     col1.write(f"**{emp['name']}**")
                     col2.write(f"Expenses: PKR {summary['total_expenses']:.2f}")
                     col3.write(f"Payments: PKR {summary['total_payments']:.2f}")
@@ -803,7 +701,68 @@ def render_employee_ledger(ledger, pdf_generator):
                         st.session_state.selected_employee = emp['id']
                         st.session_state.selected_employee_name = emp['name']
 
+                    # Edit and Delete buttons
+                    col61, col62 = col6.columns(2)
+                    with col61:
+                        if st.button("✏️", key=f"edit_{emp['id']}"):
+                            st.session_state.editing_employee = emp['id']
+                            st.rerun()
+                    with col62:
+                        if st.button("🗑️", key=f"delete_{emp['id']}"):
+                            st.session_state.deleting_employee = emp['id']
+                            st.rerun()
+
                     st.divider()
+
+            # Handle employee editing
+            if st.session_state.get('editing_employee'):
+                employee_id = st.session_state.editing_employee
+                employee = ledger.get_employee(employee_id)
+                if employee:
+                    st.markdown("---")
+                    st.markdown("### ✏️ Edit Employee")
+                    with st.form(f"edit_employee_{employee_id}"):
+                        name = st.text_input("Employee Name", value=employee['name'])
+                        initial_balance = st.number_input("Initial Balance (PKR)", 
+                                                         value=float(employee['initial_balance']), 
+                                                         step=100.0)
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.form_submit_button("💾 Update Employee", use_container_width=True):
+                                if name:
+                                    ledger.update_employee(employee_id, name, initial_balance)
+                                    st.success(f"Employee {name} updated successfully!")
+                                    st.session_state.editing_employee = None
+                                    st.rerun()
+                                else:
+                                    st.error("Please enter employee name")
+                        with col2:
+                            if st.form_submit_button("❌ Cancel", use_container_width=True):
+                                st.session_state.editing_employee = None
+                                st.rerun()
+
+            # Handle employee deletion
+            if st.session_state.get('deleting_employee'):
+                employee_id = st.session_state.deleting_employee
+                employee = ledger.get_employee(employee_id)
+                if employee:
+                    st.markdown("---")
+                    st.markdown("### 🗑️ Delete Employee")
+                    st.warning(f"Are you sure you want to delete **{employee['name']}**? This action cannot be undone!")
+                    
+                    col1, col2, col3 = st.columns([1, 1, 1])
+                    with col1:
+                        if st.button("✅ Yes, Delete", use_container_width=True, type="primary"):
+                            ledger.delete_employee(employee_id)
+                            st.success(f"Employee {employee['name']} deleted successfully!")
+                            st.session_state.deleting_employee = None
+                            st.rerun()
+                    with col2:
+                        if st.button("❌ Cancel", use_container_width=True):
+                            st.session_state.deleting_employee = None
+                            st.rerun()
+
         else:
             st.info("No employees found. Add employees to see the ledger.")
 
@@ -823,9 +782,9 @@ def render_employee_ledger(ledger, pdf_generator):
 
     with tab3:
         st.markdown("### 💰 Record Transaction")
-        with st.form("transaction_form", clear_on_submit=True):
-            employees = ledger.get_employees()
-            if employees:
+        employees = ledger.get_employees()
+        if employees:
+            with st.form("transaction_form", clear_on_submit=True):
                 employee_options = {emp['name']: emp['id'] for emp in employees}
                 selected_emp = st.selectbox("Employee", list(employee_options.keys()))
                 transaction_type = st.selectbox("Transaction Type", ["Expense (Debit)", "Payment (Credit)"])
@@ -839,8 +798,8 @@ def render_employee_ledger(ledger, pdf_generator):
                     ledger.add_transaction(emp_id, type_code, amount, description, date.isoformat())
                     st.success("Transaction recorded successfully!")
                     st.rerun()
-            else:
-                st.info("No employees available. Please add employees first.")
+        else:
+            st.info("No employees available. Please add employees first.")
 
     with tab4:
         st.markdown("### 📊 Employee Detailed View")
@@ -854,16 +813,12 @@ def render_employee_ledger(ledger, pdf_generator):
                 emp_id = next(emp['id'] for emp in employees if emp['name'] == selected_emp_name)
 
                 # Date range for detailed view
-                col1, col2, col3 = st.columns([2, 2, 1])
+                col1, col2 = st.columns(2)
                 with col1:
                     detail_start_date = st.date_input("Start Date", value=datetime.now() - timedelta(days=30),
                                                       key="detail_start")
                 with col2:
                     detail_end_date = st.date_input("End Date", value=datetime.now(), key="detail_end")
-                with col3:
-                    if st.button("📥 Download PDF", use_container_width=True):
-                        download_employee_pdf(ledger, pdf_generator, emp_id, selected_emp_name,
-                                              detail_start_date.isoformat(), detail_end_date.isoformat())
 
                 show_employee_details(ledger, emp_id, selected_emp_name,
                                       detail_start_date.isoformat(), detail_end_date.isoformat())
@@ -888,6 +843,7 @@ def show_employee_details(ledger, employee_id, employee_name, start_date=None, e
                 running_balance -= t['amount']
 
             detailed_data.append({
+                'id': t['id'],
                 'Date': t['date'],
                 'Type': t['type'].title(),
                 'Description': t['description'],
@@ -895,9 +851,9 @@ def show_employee_details(ledger, employee_id, employee_name, start_date=None, e
                 'Balance': running_balance
             })
 
-        # Display detailed transactions
+        # Display detailed transactions with edit/delete
         for idx, row in enumerate(detailed_data):
-            col1, col2, col3, col4, col5 = st.columns([2, 2, 3, 2, 2])
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 2, 3, 2, 2, 1, 1])
             col1.write(row['Date'])
             col2.write(row['Type'])
             col3.write(row['Description'])
@@ -906,6 +862,72 @@ def show_employee_details(ledger, employee_id, employee_name, start_date=None, e
             balance_color = "negative" if row['Balance'] > 0 else "positive" if row['Balance'] < 0 else ""
             balance_text = f"PKR {abs(row['Balance']):.2f} {'(Due)' if row['Balance'] > 0 else '(Advance)' if row['Balance'] < 0 else ''}"
             col5.markdown(f"<div class='{balance_color}'>{balance_text}</div>", unsafe_allow_html=True)
+
+            # Edit and Delete buttons for transactions
+            if col6.button("✏️", key=f"edit_trans_{row['id']}"):
+                st.session_state.editing_transaction = row['id']
+                st.rerun()
+
+            if col7.button("🗑️", key=f"delete_trans_{row['id']}"):
+                st.session_state.deleting_transaction = row['id']
+                st.rerun()
+
+        # Handle transaction editing
+        if st.session_state.get('editing_transaction'):
+            transaction_id = st.session_state.editing_transaction
+            transaction = ledger.get_transaction(transaction_id)
+            if transaction:
+                st.markdown("---")
+                st.markdown("### ✏️ Edit Transaction")
+                with st.form(f"edit_transaction_{transaction_id}"):
+                    employees = ledger.get_employees()
+                    employee_name = next((emp['name'] for emp in employees if emp['id'] == transaction['employee_id']), "Unknown")
+                    st.text_input("Employee", value=employee_name, disabled=True)
+                    
+                    transaction_type = st.selectbox("Transaction Type", 
+                                                   ["Expense (Debit)", "Payment (Credit)"],
+                                                   index=0 if transaction['type'] == 'expense' else 1)
+                    amount = st.number_input("Amount (PKR)", value=float(transaction['amount']), min_value=0.0, step=100.0)
+                    description = st.text_input("Description", value=transaction['description'])
+                    date = st.date_input("Date", value=datetime.strptime(transaction['date'], '%Y-%m-%d').date())
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.form_submit_button("💾 Update Transaction", use_container_width=True):
+                            type_code = 'expense' if 'Expense' in transaction_type else 'payment'
+                            ledger.update_transaction(transaction_id, type_code, amount, description, date.isoformat())
+                            st.success("Transaction updated successfully!")
+                            st.session_state.editing_transaction = None
+                            st.rerun()
+                    with col2:
+                        if st.form_submit_button("❌ Cancel", use_container_width=True):
+                            st.session_state.editing_transaction = None
+                            st.rerun()
+
+        # Handle transaction deletion
+        if st.session_state.get('deleting_transaction'):
+            transaction_id = st.session_state.deleting_transaction
+            transaction = ledger.get_transaction(transaction_id)
+            if transaction:
+                st.markdown("---")
+                st.markdown("### 🗑️ Delete Transaction")
+                st.warning(f"Are you sure you want to delete this transaction? This action cannot be undone!")
+                st.write(f"**Date:** {transaction['date']}")
+                st.write(f"**Type:** {transaction['type'].title()}")
+                st.write(f"**Description:** {transaction['description']}")
+                st.write(f"**Amount:** PKR {transaction['amount']:.2f}")
+                
+                col1, col2, col3 = st.columns([1, 1, 1])
+                with col1:
+                    if st.button("✅ Yes, Delete", use_container_width=True, type="primary"):
+                        ledger.delete_transaction(transaction_id)
+                        st.success("Transaction deleted successfully!")
+                        st.session_state.deleting_transaction = None
+                        st.rerun()
+                with col2:
+                    if st.button("❌ Cancel", use_container_width=True):
+                        st.session_state.deleting_transaction = None
+                        st.rerun()
 
         # Summary
         summary = ledger.get_employee_summary(employee_id, start_date, end_date)
@@ -921,28 +943,7 @@ def show_employee_details(ledger, employee_id, employee_name, start_date=None, e
     else:
         st.info("No transactions found for this employee in the selected period.")
 
-def download_employee_pdf(ledger, pdf_generator, employee_id, employee_name, start_date=None, end_date=None):
-    try:
-        transactions = ledger.get_transactions(employee_id, start_date, end_date)
-        summary = ledger.get_employee_summary(employee_id, start_date, end_date)
-
-        pdf = pdf_generator.generate_employee_ledger_pdf(employee_name, transactions, summary, start_date, end_date)
-        
-        if pdf:
-            # Save PDF to bytes
-            pdf_output = pdf.output(dest='S').encode('latin1')
-
-            st.download_button(
-                label="📥 Download PDF Report",
-                data=pdf_output,
-                file_name=f"employee_ledger_{employee_name}_{datetime.now().strftime('%Y%m%d')}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-    except Exception as e:
-        st.error(f"Error generating PDF: {str(e)}")
-
-def render_expense_dashboard(expense_tracker, pdf_generator, ledger):
+def render_expense_dashboard(expense_tracker, ledger):
     st.markdown('<div class="sub-header">💰 Expense Management</div>', unsafe_allow_html=True)
     st.write("Track and manage all company and employee expenses")
 
@@ -973,21 +974,6 @@ def render_expense_dashboard(expense_tracker, pdf_generator, ledger):
         with col3:
             st.markdown(f'<div class="metric-card">Grand Total<br>PKR {summary["grand_total"]:.2f}</div>',
                         unsafe_allow_html=True)
-
-        # Download buttons
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("📥 All Expenses PDF", use_container_width=True):
-                download_expense_pdf(expense_tracker, pdf_generator, "all",
-                                     exp_start_date.isoformat(), exp_end_date.isoformat())
-        with col2:
-            if st.button("🏢 Company Expenses PDF", use_container_width=True):
-                download_expense_pdf(expense_tracker, pdf_generator, "company",
-                                     exp_start_date.isoformat(), exp_end_date.isoformat())
-        with col3:
-            if st.button("👤 Employee Expenses PDF", use_container_width=True):
-                download_expense_pdf(expense_tracker, pdf_generator, "employee",
-                                     exp_start_date.isoformat(), exp_end_date.isoformat())
 
         # Expense analysis charts
         expenses = expense_tracker.get_expenses(start_date=exp_start_date.isoformat(),
@@ -1094,10 +1080,10 @@ def render_expense_dashboard(expense_tracker, pdf_generator, ledger):
             if search_term:
                 filtered_expenses = [e for e in filtered_expenses if search_term.lower() in e['description'].lower()]
 
-            # Display expenses
+            # Display expenses with edit/delete
             for expense in sorted(filtered_expenses, key=lambda x: x['date'], reverse=True)[:20]:
                 with st.container():
-                    col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 3, 2, 2, 1])
+                    col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 2, 3, 2, 2, 1, 1])
                     col1.write(expense['date'])
                     col2.write(f"{expense['type'].title()}")
                     col3.write(expense['description'])
@@ -1107,40 +1093,101 @@ def render_expense_dashboard(expense_tracker, pdf_generator, ledger):
                         col4.write("N/A")
                     col5.write(f"PKR {expense['amount']:.2f}")
 
-                    if col6.button("🗑️", key=f"del_exp_{expense['id']}"):
-                        expense_tracker.delete_expense(expense['id'])
+                    # Edit and Delete buttons
+                    if col6.button("✏️", key=f"edit_exp_{expense['id']}"):
+                        st.session_state.editing_expense = expense['id']
                         st.rerun()
+
+                    if col7.button("🗑️", key=f"del_exp_{expense['id']}"):
+                        st.session_state.deleting_expense = expense['id']
+                        st.rerun()
+
                     st.divider()
+
+            # Handle expense editing
+            if st.session_state.get('editing_expense'):
+                expense_id = st.session_state.editing_expense
+                expense = expense_tracker.get_expense(expense_id)
+                if expense:
+                    st.markdown("---")
+                    st.markdown("### ✏️ Edit Expense")
+                    with st.form(f"edit_expense_{expense_id}"):
+                        expense_type = st.radio("Expense Type", ["Company", "Employee"], 
+                                               index=0 if expense['type'] == 'company' else 1)
+                        description = st.text_input("Description", value=expense['description'])
+                        amount = st.number_input("Amount (PKR)", value=float(expense['amount']), min_value=0.0, step=100.0)
+                        
+                        employee_name = None
+                        if expense_type == "Employee":
+                            employees = ledger.get_employees()
+                            if employees:
+                                employee_options = [emp['name'] for emp in employees]
+                                default_index = employee_options.index(expense['employee_name']) if expense['employee_name'] in employee_options else 0
+                                employee_name = st.selectbox("Employee", employee_options, index=default_index)
+                            else:
+                                st.info("No employees available.")
+                                employee_name = st.text_input("Or enter employee name", value=expense['employee_name'] or "")
+                        else:
+                            employee_name = expense['employee_name']
+
+                        date = st.date_input("Date", value=datetime.strptime(expense['date'], '%Y-%m-%d').date())
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.form_submit_button("💾 Update Expense", use_container_width=True):
+                                if description and amount > 0:
+                                    expense_tracker.update_expense(
+                                        expense_id,
+                                        expense_type.lower(),
+                                        description,
+                                        amount,
+                                        employee_name,
+                                        date.isoformat()
+                                    )
+                                    st.success("Expense updated successfully!")
+                                    st.session_state.editing_expense = None
+                                    st.rerun()
+                                else:
+                                    st.error("Please fill all required fields")
+                        with col2:
+                            if st.form_submit_button("❌ Cancel", use_container_width=True):
+                                st.session_state.editing_expense = None
+                                st.rerun()
+
+            # Handle expense deletion
+            if st.session_state.get('deleting_expense'):
+                expense_id = st.session_state.deleting_expense
+                expense = expense_tracker.get_expense(expense_id)
+                if expense:
+                    st.markdown("---")
+                    st.markdown("### 🗑️ Delete Expense")
+                    st.warning(f"Are you sure you want to delete this expense? This action cannot be undone!")
+                    st.write(f"**Date:** {expense['date']}")
+                    st.write(f"**Type:** {expense['type'].title()}")
+                    st.write(f"**Description:** {expense['description']}")
+                    st.write(f"**Amount:** PKR {expense['amount']:.2f}")
+                    if expense['employee_name']:
+                        st.write(f"**Employee:** {expense['employee_name']}")
+                    
+                    col1, col2, col3 = st.columns([1, 1, 1])
+                    with col1:
+                        if st.button("✅ Yes, Delete", use_container_width=True, type="primary"):
+                            expense_tracker.delete_expense(expense_id)
+                            st.success("Expense deleted successfully!")
+                            st.session_state.deleting_expense = None
+                            st.rerun()
+                    with col2:
+                        if st.button("❌ Cancel", use_container_width=True):
+                            st.session_state.deleting_expense = None
+                            st.rerun()
+
         else:
             st.info("No expenses recorded yet. Add expenses to see the list.")
 
-def download_expense_pdf(expense_tracker, pdf_generator, expense_type, start_date=None, end_date=None):
-    try:
-        expenses = expense_tracker.get_expenses(
-            expense_type=expense_type if expense_type != 'all' else None,
-            start_date=start_date,
-            end_date=end_date
-        )
-
-        pdf = pdf_generator.generate_expense_report_pdf(expenses, expense_type, start_date=start_date, end_date=end_date)
-        
-        if pdf:
-            pdf_output = pdf.output(dest='S').encode('latin1')
-
-            st.download_button(
-                label=f"📥 Download {expense_type.title()} Expenses PDF",
-                data=pdf_output,
-                file_name=f"{expense_type}_expenses_{datetime.now().strftime('%Y%m%d')}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-    except Exception as e:
-        st.error(f"Error generating PDF: {str(e)}")
-
-def render_reports_analytics(ledger, expense_tracker, pdf_generator):
+def render_reports_analytics(ledger, expense_tracker):
     st.markdown('<div class="sub-header">📊 Reports & Analytics</div>', unsafe_allow_html=True)
 
-    tab1, tab2, tab3 = st.tabs(["📈 Analytics Dashboard", "📋 Employee Reports", "💰 Expense Reports"])
+    tab1, tab2 = st.tabs(["📈 Analytics Dashboard", "📋 Export Data"])
 
     with tab1:
         col1, col2 = st.columns(2)
@@ -1215,52 +1262,6 @@ def render_reports_analytics(ledger, expense_tracker, pdf_generator):
                 st.info("No expense data available")
 
     with tab2:
-        st.markdown("### 📋 Employee Reports")
-
-        employees = ledger.get_employees()
-        if employees:
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                selected_employee = st.selectbox("Select Employee", [emp['name'] for emp in employees],
-                                                 key="report_emp")
-            with col2:
-                emp_start_date = st.date_input("Start Date", value=datetime.now() - timedelta(days=30),
-                                               key="emp_report_start")
-            with col3:
-                emp_end_date = st.date_input("End Date", value=datetime.now(), key="emp_report_end")
-
-            if st.button("Generate Employee Report PDF", use_container_width=True):
-                emp_id = next(emp['id'] for emp in employees if emp['name'] == selected_employee)
-                download_employee_pdf(ledger, pdf_generator, emp_id, selected_employee,
-                                      emp_start_date.isoformat(), emp_end_date.isoformat())
-        else:
-            st.info("No employees available for reports")
-
-    with tab3:
-        st.markdown("### 💰 Expense Reports")
-
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            expense_types = ["All", "Company", "Employee"]
-            selected_type = st.selectbox("Select Expense Type", expense_types, key="report_exp")
-        with col2:
-            exp_start_date = st.date_input("Start Date", value=datetime.now() - timedelta(days=30),
-                                           key="exp_report_start")
-        with col3:
-            exp_end_date = st.date_input("End Date", value=datetime.now(), key="exp_report_end")
-
-        if st.button("Generate Expense Report PDF", use_container_width=True):
-            download_expense_pdf(expense_tracker, pdf_generator, selected_type.lower(),
-                                 exp_start_date.isoformat(), exp_end_date.isoformat())
-
-def render_data_management(ledger, expense_tracker):
-    st.markdown('<div class="sub-header">📁 Data Management</div>', unsafe_allow_html=True)
-
-    tab1, tab2 = st.tabs(["📤 Export Data", "📥 Import Data"])
-
-    with tab1:
         st.markdown("### 📤 Export Data")
 
         # Export templates
@@ -1340,7 +1341,12 @@ def render_data_management(ledger, expense_tracker):
                 else:
                     st.info("No expense data to export")
 
-    with tab2:
+def render_data_management(ledger, expense_tracker):
+    st.markdown('<div class="sub-header">📁 Data Management</div>', unsafe_allow_html=True)
+
+    tab1, tab2 = st.tabs(["📥 Import Data", "🔧 System Management"])
+
+    with tab1:
         st.markdown("### 📥 Import Data")
 
         st.markdown("#### Import Employees")
@@ -1390,34 +1396,35 @@ def render_data_management(ledger, expense_tracker):
             except Exception as e:
                 st.error(f"Error reading file: {e}")
 
-    # System statistics and cleanup
-    st.markdown("### 🔧 System Management")
+    with tab2:
+        # System statistics and cleanup
+        st.markdown("### 🔧 System Management")
 
-    col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns(3)
 
-    with col1:
-        st.metric("Total Employees", len(ledger.get_employees()))
-    with col2:
-        st.metric("Total Transactions", len(ledger.get_transactions()))
-    with col3:
-        st.metric("Total Expenses", len(expense_tracker.get_expenses()))
+        with col1:
+            st.metric("Total Employees", len(ledger.get_employees()))
+        with col2:
+            st.metric("Total Transactions", len(ledger.get_transactions()))
+        with col3:
+            st.metric("Total Expenses", len(expense_tracker.get_expenses()))
 
-    # Data cleanup with confirmation
-    st.markdown("#### Data Management")
-    if st.button("🚨 Clear All Data", use_container_width=True):
-        st.warning("This will delete ALL data permanently!")
-        if st.checkbox("I understand this action cannot be undone"):
-            if st.button("Confirm Delete All Data", type="primary", use_container_width=True):
-                # Clear all data from database
-                conn = get_db_connection()
-                c = conn.cursor()
-                c.execute('DELETE FROM employees')
-                c.execute('DELETE FROM transactions')
-                c.execute('DELETE FROM expenses')
-                conn.commit()
-                conn.close()
-                st.success("All data cleared successfully!")
-                st.rerun()
+        # Data cleanup with confirmation
+        st.markdown("#### Data Management")
+        if st.button("🚨 Clear All Data", use_container_width=True):
+            st.warning("This will delete ALL data permanently!")
+            if st.checkbox("I understand this action cannot be undone"):
+                if st.button("Confirm Delete All Data", type="primary", use_container_width=True):
+                    # Clear all data from database
+                    conn = get_db_connection()
+                    c = conn.cursor()
+                    c.execute('DELETE FROM employees')
+                    c.execute('DELETE FROM transactions')
+                    c.execute('DELETE FROM expenses')
+                    conn.commit()
+                    conn.close()
+                    st.success("All data cleared successfully!")
+                    st.rerun()
 
 # Footer for all pages
 def render_footer():
