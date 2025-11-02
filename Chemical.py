@@ -1,2673 +1,2361 @@
 import streamlit as st
 import pandas as pd
 import json
-from datetime import datetime
+import datetime
+from datetime import datetime, timedelta
+import io
 import base64
-from io import BytesIO
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-import os
-from reportlab.pdfgen import canvas
-from reportlab.lib.utils import ImageReader
 import tempfile
-import csv
-import zipfile
+import os
+import sqlite3
+import uuid
+from PIL import Image
 
-# Page configuration with optimized settings
+# Try to import plotly with fallback
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    st.warning("Plotly not available. Using alternative visualizations.")
+
+# Try to import fpdf with fallback
+try:
+    from fpdf import FPDF
+    FPDF_AVAILABLE = True
+except ImportError:
+    FPDF_AVAILABLE = False
+    st.warning("FPDF not available. PDF generation disabled.")
+
+# Set page configuration
 st.set_page_config(
-    page_title="HMD Solutions - Chemical Management System",
-    page_icon="🧪",
+    page_title="HMD Solutions - Business Management System",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for orange background and better visibility
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background: linear-gradient(135deg, #000000 0%, #121212 100%);
-    }
+# Custom CSS for attractive styling
+st.markdown("""
+<style>
     .main-header {
-        background: rgba(255, 255, 255, 0.95);
-        padding: 25px;
-        border-radius: 15px;
-        margin-bottom: 20px;
+        font-size: 2.8rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         text-align: center;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        border: 2px solid #000000;
+        margin-bottom: 1rem;
+        padding: 1rem;
     }
-    .section-header {
-        background: rgba(255, 255, 255, 0.98);
-        padding: 20px;
-        border-radius: 12px;
-        margin: 15px 0;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        border-left: 5px solid #000000;
+    .sub-header {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 1rem;
+        border-bottom: 3px solid #667eea;
+        padding-bottom: 0.5rem;
+    }
+    .card {
+        background-color: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        border-left: 5px solid #667eea;
+        transition: transform 0.3s ease;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+    }
+    .positive {
+        color: #10b981;
+        font-weight: bold;
+        font-size: 1.1em;
+    }
+    .negative {
+        color: #ef4444;
+        font-weight: bold;
+        font-size: 1.1em;
     }
     .metric-card {
-        background: rgba(255, 255, 255, 0.95);
-        padding: 20px;
-        border-radius: 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 15px;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        border-top: 4px solid #000000;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        margin: 0.5rem;
     }
-    .vendor-card {
-        background: rgba(255, 255, 255, 0.98);
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        border-left: 4px solid #121212;
+    .footer {
+        background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+        margin-top: 3rem;
+        border-radius: 15px;
     }
-    .payment-card {
-        background: rgba(255, 255, 255, 0.98);
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        border-left: 4px solid #000000;
-    }
-    .expense-card {
-        background: rgba(255, 255, 255, 0.98);
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        border-left: 4px solid #FF6B35;
-    }
-    .quick-action-card {
-        background: rgba(255, 255, 255, 0.95);
-        padding: 15px;
-        border-radius: 10px;
-        margin: 5px 0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e0e0e0;
-        transition: all 0.3s ease;
-        cursor: pointer;
-    }
-    .quick-action-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-        border-color: #000000;
-    }
-    /* Ensure text visibility */
-    .stDataFrame {
-        background-color: white;
-        border-radius: 10px;
-        padding: 10px;
-    }
-    .css-1r6slb0 {
-        background-color: rgba(255, 255, 255, 0.95);
-    }
-    /* Sidebar styling */
-    .css-1d391kg {
-        background: linear-gradient(135deg,#000000 0%, #121212 100%);
-    }
-    .stButton>button {
-        background-color: #000000;
+    .stButton button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         border: none;
-        border-radius: 8px;
-        padding: 10px 20px;
+        padding: 0.5rem 1.5rem;
+        border-radius: 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
     }
-    .stButton>button:hover {
-        background-color: #000000;
+    .stButton button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+    .sidebar .sidebar-content {
+        background: linear-gradient(180deg, #2c3e50 0%, #3498db 100%);
+    }
+    .tab-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+    .edit-btn {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        margin-right: 0.5rem;
+        color: white !important;
+        border: none !important;
+    }
+    .delete-btn {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+        color: white !important;
+        border: none !important;
+    }
+    .update-btn {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+        color: white !important;
+        border: none !important;
+        margin-right: 0.5rem;
+    }
+    .quick-action-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 15px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        width: 100%;
+        margin: 0.5rem 0;
     }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# Data persistence functions
-def save_data():
-    """Save all session state data to JSON files"""
-    try:
-        data = {
-            'chemicals': st.session_state.chemicals,
-            'packaging_materials': st.session_state.packaging_materials,
-            'vendor_ledger': st.session_state.vendor_ledger,
-            'vendor_payments': st.session_state.vendor_payments,
-            'production_history': st.session_state.production_history,
-            'settings': st.session_state.settings,
-            'expenses': st.session_state.expenses
-        }
-
-        with open('hmd_data.json', 'w') as f:
-            json.dump(data, f, indent=4)
-
-        # Also create backup with timestamp
-        backup_filename = f"backup/hmd_data_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        os.makedirs('backup', exist_ok=True)
-        with open(backup_filename, 'w') as f:
-            json.dump(data, f, indent=4)
-
-    except Exception as e:
-        st.error(f"Error saving data: {str(e)}")
-
-
-def load_data():
-    """Load all data from JSON files"""
-    try:
-        if os.path.exists('hmd_data.json'):
-            with open('hmd_data.json', 'r') as f:
-                data = json.load(f)
-
-            st.session_state.chemicals = data.get('chemicals', [])
-            st.session_state.packaging_materials = data.get('packaging_materials', {})
-            st.session_state.vendor_ledger = data.get('vendor_ledger', [])
-            st.session_state.vendor_payments = data.get('vendor_payments', [])
-            st.session_state.production_history = data.get('production_history', [])
-            st.session_state.settings = data.get('settings', {
-                'company_name': "HMD Solutions",
-                'default_batch_size': 500,
-                'low_stock_threshold': 5.0,
-                'packaging_low_stock': 10
-            })
-            st.session_state.expenses = data.get('expenses', [])
-    except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
-
-
-def auto_save():
-    """Auto-save data with user feedback"""
-    save_data()
-    st.toast("💾 Data saved successfully!", icon="✅")
-
-
-# Initialize session state for data persistence
-if 'chemicals' not in st.session_state:
-    st.session_state.chemicals = []
-
-if 'packaging_materials' not in st.session_state:
-    st.session_state.packaging_materials = {}
-
-if 'vendor_ledger' not in st.session_state:
-    st.session_state.vendor_ledger = []
-
-if 'vendor_payments' not in st.session_state:
-    st.session_state.vendor_payments = []
-
-if 'production_history' not in st.session_state:
-    st.session_state.production_history = []
-
-if 'expenses' not in st.session_state:
-    st.session_state.expenses = []
-
-if 'settings' not in st.session_state:
-    st.session_state.settings = {
-        'company_name': "HMD Solutions",
-        'default_batch_size': 500,
-        'low_stock_threshold': 5.0,
-        'packaging_low_stock': 10
+    .quick-action-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
     }
-
-if 'editing_chemical' not in st.session_state:
-    st.session_state.editing_chemical = None
-
-if 'editing_vendor' not in st.session_state:
-    st.session_state.editing_vendor = None
-
-if 'editing_payment' not in st.session_state:
-    st.session_state.editing_payment = None
-
-if 'editing_expense' not in st.session_state:
-    st.session_state.editing_expense = None
-
-# Load data on startup
-load_data()
-
-
-# Expense Management Functions
-def get_next_expense_id():
-    """Get next expense ID"""
-    if not st.session_state.expenses:
-        return 1
-    return max(expense['id'] for expense in st.session_state.expenses) + 1
-
-
-def calculate_expense_totals():
-    """Calculate total expenses by category"""
-    if not st.session_state.expenses:
-        return {}
-    
-    totals = {}
-    for expense in st.session_state.expenses:
-        category = expense['category']
-        if category not in totals:
-            totals[category] = 0
-        totals[category] += expense['amount']
-    
-    return totals
-
-
-def create_expense_pdf():
-    """Create PDF for expenses with professional watermark and signature"""
-    buffer = BytesIO()
-
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=40, bottomMargin=40)
-    elements = []
-
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=16,
-        spaceAfter=20,
-        textColor=colors.HexColor('#000000'),
-        alignment=1
-    )
-
-    # Title Section
-    title = Paragraph("HMD SOLUTIONS - EXPENSE REPORT", title_style)
-    elements.append(title)
-    elements.append(Spacer(1, 15))
-
-    # Company Info
-    company_info = Paragraph(
-        f"<b>Company:</b> HMD Solutions | <b>Report Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-        styles['Normal']
-    )
-    elements.append(company_info)
-    elements.append(Spacer(1, 15))
-
-    # Add expense data
-    if st.session_state.expenses:
-        data = [['Date', 'Category', 'Description', 'Amount', 'Payment Method']]
-
-        for expense in st.session_state.expenses:
-            data.append([
-                expense['date'],
-                expense['category'],
-                expense['description'][:30],
-                f"Rs. {expense['amount']:,.2f}",
-                expense['payment_method']
-            ])
-
-        # Create table
-        table = Table(data, repeatRows=1)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FF6B35')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8f9fa')),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ]))
-        elements.append(table)
-
-        # Add summary
-        elements.append(Spacer(1, 15))
-        total_expenses = sum(expense['amount'] for expense in st.session_state.expenses)
-        category_totals = calculate_expense_totals()
-
-        # Total expenses
-        total_text = Paragraph(f"<b>Total Expenses: Rs. {total_expenses:,.2f}</b>", styles['Heading2'])
-        elements.append(total_text)
-
-        # Category breakdown
-        elements.append(Spacer(1, 10))
-        elements.append(Paragraph("<b>Category Breakdown:</b>", styles['Heading3']))
-        
-        for category, amount in category_totals.items():
-            category_text = Paragraph(f"{category}: Rs. {amount:,.2f}", styles['Normal'])
-            elements.append(category_text)
-
-    else:
-        no_data = Paragraph("No expense data available", styles['Heading2'])
-        elements.append(no_data)
-
-    # Add signature section
-    elements.append(Spacer(1, 25))
-
-    # Signature with smaller image and text above
-    try:
-        if os.path.exists("Asim Siganture.jpg"):
-            signature_img = Image("Asim Siganture.jpg", width=120, height=40)
-            elements.append(signature_img)
-    except:
-        pass
-
-    signature_text = Paragraph("Accountant Signature<br/><b>HMD Solutions</b>",
-                               ParagraphStyle(
-                                   'SignatureStyle',
-                                   parent=styles['Normal'],
-                                   fontSize=10,
-                                   spaceBefore=5,
-                                   alignment=1
-                               ))
-    elements.append(signature_text)
-
-    doc.build(elements, onFirstPage=add_watermark, onLaterPages=add_watermark)
-    buffer.seek(0)
-    return buffer
-
-
-# Quick Actions Functions
-def quick_action_add_chemical():
-    """Quick action to add chemical"""
-    st.session_state.current_page = "Chemical Stock"
-    st.session_state.show_add_chemical = True
-
-def quick_action_add_expense():
-    """Quick action to add expense"""
-    st.session_state.current_page = "Expense Management"
-    st.session_state.show_add_expense = True
-
-def quick_action_add_vendor():
-    """Quick action to add vendor transaction"""
-    st.session_state.current_page = "Vendor Ledger"
-    st.session_state.show_add_vendor = True
-
-def quick_action_add_payment():
-    """Quick action to add vendor payment"""
-    st.session_state.current_page = "Vendor Payments"
-    st.session_state.show_add_payment = True
-
-def quick_action_generate_report():
-    """Quick action to generate reports"""
-    st.session_state.current_page = "Reports"
-
-def quick_action_view_dashboard():
-    """Quick action to view dashboard"""
-    st.session_state.current_page = "Dashboard"
-
-
-# Cache product formulas for better performance
-@st.cache_data
-def get_product_formulas():
-    return {
-        "NETONIL": [
-            {"chemical_name": "Butyric Acid", "amount_per_550": 200.00},
-            {"chemical_name": "Phosphoric Acid", "amount_per_550": 100.00},
-            {"chemical_name": "Propanic Acid", "amount_per_550": 25.00},
-            {"chemical_name": "Formic Acid", "amount_per_550": 210.00},
-            {"chemical_name": "Lactic Acid", "amount_per_550": 25.00},
-            {"chemical_name": "Acetic Acid", "amount_per_550": 35.00},
-            {"chemical_name": "Copper Sulphate", "amount_per_550": 25.00},
-            {"chemical_name": "Citric Acid", "amount_per_550": 50.00}
-        ],
-        "URIVIT": [
-            {"chemical_name": "Sodium Benzoate", "amount_per_300": 150.00},
-            {"chemical_name": "Vitamin A", "amount_per_300": 1000.00},
-            {"chemical_name": "Vitamin E Powder", "amount_per_300": 1000.00},
-            {"chemical_name": "Vitamin C", "amount_per_300": 1000.00},
-            {"chemical_name": "Vitamin K3", "amount_per_300": 1000.00},
-            {"chemical_name": "Artichoke", "amount_per_300": 2.00},
-            {"chemical_name": "Dextoxirose", "amount_per_300": 250.00}
-        ],
-        "DEXTOXI-VIT": [
-            {"chemical_name": "Slymarine", "amount_per_500": 5.00},
-            {"chemical_name": "Choline Chloride", "amount_per_500": 12.00},
-            {"chemical_name": "Magnesium Sulphate", "amount_per_500": 50.00},
-            {"chemical_name": "Betain", "amount_per_500": 5.00},
-            {"chemical_name": "Nicotinamide", "amount_per_500": 3.00},
-            {"chemical_name": "Zinc-sulphate", "amount_per_500": 15.00},
-            {"chemical_name": "L-Carnitine", "amount_per_500": 3.00},
-            {"chemical_name": "DL-Mtahileene", "amount_per_500": 3.00},
-            {"chemical_name": "Vitamin- B1", "amount_per_500": 0.00},
-            {"chemical_name": "Vitamin- B6", "amount_per_500": 0.00},
-            {"chemical_name": "Twin-80", "amount_per_500": 200.00},
-            {"chemical_name": "Artichoke", "amount_per_500": 0.00},
-            {"chemical_name": "Sorbitol", "amount_per_500": 250.00},
-            {"chemical_name": "Methyl Paraben Sodium", "amount_per_500": 0.00},
-            {"chemical_name": "Propyl Paraben Sodium", "amount_per_500": 0.00},
-            {"chemical_name": "Sodium Benzoate", "amount_per_500": 0.00},
-            {"chemical_name": "Insocitol", "amount_per_500": 2.00}
-        ],
-        "NURBUS": [
-            {"chemical_name": "Eucalyptus oil", "amount_per_300": 25.00},
-            {"chemical_name": "Menthol", "amount_per_300": 25.00},
-            {"chemical_name": "Thymoil", "amount_per_300": 4.00},
-            {"chemical_name": "Twin-80", "amount_per_300": 200.00},
-            {"chemical_name": "Camphor", "amount_per_300": 8.00},
-            {"chemical_name": "Peppermentoil", "amount_per_300": 5.00},
-            {"chemical_name": "P.G", "amount_per_300": 430.00},
-            {"chemical_name": "Pine Oil", "amount_per_300": 6.00}
-        ],
-        "KEYTON": [
-            {"chemical_name": "Vitamin E Liquid", "amount_per_500": 40.00},
-            {"chemical_name": "Twin-80", "amount_per_500": 136.00},
-            {"chemical_name": "Citamatagoal", "amount_per_500": 0.00},
-            {"chemical_name": "Vitamin C", "amount_per_500": 100.00},
-            {"chemical_name": "Choline Chloride", "amount_per_500": -3.00},
-            {"chemical_name": "Zinc-sulphate", "amount_per_500": 9.00},
-            {"chemical_name": "Benzail Alchol", "amount_per_500": 0.00},
-            {"chemical_name": "P.G", "amount_per_500": 296.00}
-        ],
-        "PROLYTE-C": [
-            {"chemical_name": "Vitamin C", "amount_per_300": 100.00},
-            {"chemical_name": "Sodium Chloride", "amount_per_300": 10.00},
-            {"chemical_name": "Potasium Chloride", "amount_per_300": 2.00},
-            {"chemical_name": "Sodium Citrate", "amount_per_300": 2.00},
-            {"chemical_name": "Nicotinamide", "amount_per_300": -3.00},
-            {"chemical_name": "Dextoxirose", "amount_per_300": 104.00}
-        ],
-        "ACTIVO LAZE": [
-            {"chemical_name": "Lysozme", "amount_per_500": 175.00},
-            {"chemical_name": "Vitamin E Powder", "amount_per_500": 10.00},
-            {"chemical_name": "Vitamin C", "amount_per_500": 40.00},
-            {"chemical_name": "Fe SO4", "amount_per_500": 1.00}
-        ],
-        "AMBROXAL(HCL)": [
-            {"chemical_name": "Bromhexine", "amount_per_500": 5.00},
-            {"chemical_name": "Ambroxal", "amount_per_500": 25.00},
-            {"chemical_name": "Aminophylline", "amount_per_500": 25.00},
-            {"chemical_name": "Guaifenesin", "amount_per_500": 25.00},
-            {"chemical_name": "Ammonium Chloride", "amount_per_500": 1.00},
-            {"chemical_name": "Menthol", "amount_per_500": 10.00},
-            {"chemical_name": "Peppermentoil", "amount_per_500": 2.00},
-            {"chemical_name": "N Acetyl L cysteine", "amount_per_500": 2.50}
-        ]
+    .download-btn {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        margin: 0.2rem;
     }
-
-
-@st.cache_data
-def get_product_packaging():
-    return {
-        "NETONIL": {"type": "can", "size": 25},
-        "URIVIT": {"type": "box", "size": 1},
-        "DEXTOXI-VIT": {"type": "bottle", "size": 1},
-        "NURBUS": {"type": "bottle", "size": 1},
-        "KEYTON": {"type": "bottle", "size": 1},
-        "PROLYTE-C": {"type": "box", "size": 1},
-        "ACTIVO LAZE": {"type": "bottle", "size": 1},
-        "AMBROXAL(HCL)": {"type": "bottle", "size": 1}
+    .success-message {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
     }
-
-
-# Helper functions
-def show_alert(message, type="info"):
-    """Show alert message"""
-    if type == "success":
-        st.success(message)
-    elif type == "warning":
-        st.warning(message)
-    elif type == "error":
-        st.error(message)
-    else:
-        st.info(message)
-
-
-def get_next_chemical_id():
-    """Get next chemical ID"""
-    if not st.session_state.chemicals:
-        return 1
-    return max(chem['id'] for chem in st.session_state.chemicals) + 1
-
-
-def get_next_vendor_id():
-    """Get next vendor transaction ID"""
-    if not st.session_state.vendor_ledger:
-        return 1
-    return max(vendor['id'] for vendor in st.session_state.vendor_ledger) + 1
-
-
-def get_next_payment_id():
-    """Get next payment ID"""
-    if not st.session_state.vendor_payments:
-        return 1
-    return max(payment['id'] for payment in st.session_state.vendor_payments) + 1
-
-
-def update_dashboard():
-    """Update dashboard statistics"""
-    total_chemicals = len([c for c in st.session_state.chemicals if c['stock'] > 0])
-    low_stock_count = len(
-        [c for c in st.session_state.chemicals if 0 < c['stock'] < st.session_state.settings['low_stock_threshold']])
-    out_of_stock_count = len([c for c in st.session_state.chemicals if c['stock'] <= 0])
-    total_packaging = len([p for p in st.session_state.packaging_materials.values() if p['stock'] > 0])
-    
-    # Expense statistics
-    total_expenses = sum(expense['amount'] for expense in st.session_state.expenses) if st.session_state.expenses else 0
-    expense_categories = len(set(expense['category'] for expense in st.session_state.expenses)) if st.session_state.expenses else 0
-
-    return total_chemicals, low_stock_count, out_of_stock_count, total_packaging, total_expenses, expense_categories
-
-
-def calculate_vendor_balance(vendor_name):
-    """Calculate vendor balance (total purchases - total payments)"""
-    total_purchases = sum(
-        ledger['total_amount']
-        for ledger in st.session_state.vendor_ledger
-        if ledger['vendor_name'] == vendor_name
-    )
-    total_payments = sum(
-        payment['amount']
-        for payment in st.session_state.vendor_payments
-        if payment['vendor_name'] == vendor_name
-    )
-    return total_purchases - total_payments
-
-
-# PDF creation functions with professional watermark and signature
-def add_watermark(canvas, doc):
-    """Add professional watermark to PDF pages"""
-    try:
-        if os.path.exists("logo.png"):
-            # Set watermark with very low opacity for professional look
-            canvas.saveState()
-            canvas.setFillAlpha(0.03)  # Reduced opacity for professional look
-            # Center the watermark
-            watermark = ImageReader("logo.png")
-            img_width, img_height = watermark.getSize()
-            aspect = img_height / float(img_width)
-
-            # Adjust size to cover most of the page but not too prominent
-            display_width = 500
-            display_height = display_width * aspect
-
-            x = (doc.pagesize[0] - display_width) / 2
-            y = (doc.pagesize[1] - display_height) / 2
-
-            canvas.drawImage("logo.png", x, y, width=display_width, height=display_height)
-            canvas.restoreState()
-    except Exception as e:
-        print(f"Watermark error: {e}")
-
-
-@st.cache_data(ttl=300)
-def create_vendor_ledger_pdf(vendor_type=None, vendor_name=None):
-    """Create professional PDF for vendor ledger with detailed transaction history and summary"""
-    buffer = BytesIO()
-
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=40, bottomMargin=40)
-    elements = []
-
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=16,
-        spaceAfter=20,
-        textColor=colors.HexColor('#000000'),
-        alignment=1
-    )
-
-    # Filter data based on vendor type or vendor name
-    if vendor_type:
-        filtered_data = [v for v in st.session_state.vendor_ledger if v['vendor_type'] == vendor_type]
-        title_text = f"HMD SOLUTIONS - {vendor_type.upper()} VENDOR LEDGER REPORT"
-        filtered_payments = [p for p in st.session_state.vendor_payments
-                             if any(v['vendor_name'] == p['vendor_name']
-                                    for v in st.session_state.vendor_ledger
-                                    if v['vendor_type'] == vendor_type)]
-    elif vendor_name:
-        filtered_data = [v for v in st.session_state.vendor_ledger if v['vendor_name'] == vendor_name]
-        title_text = f"HMD SOLUTIONS - {vendor_name.upper()} LEDGER REPORT"
-        filtered_payments = [p for p in st.session_state.vendor_payments if p['vendor_name'] == vendor_name]
-    else:
-        filtered_data = st.session_state.vendor_ledger
-        title_text = "HMD SOLUTIONS - COMPLETE VENDOR LEDGER REPORT"
-        filtered_payments = st.session_state.vendor_payments
-
-    # Title Section
-    title = Paragraph(title_text, title_style)
-    elements.append(title)
-
-    # Company Info
-    company_info = Paragraph(
-        f"<b>Company:</b> HMD Solutions | <b>Report Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-        styles['Normal']
-    )
-    elements.append(company_info)
-    elements.append(Spacer(1, 15))
-
-    # Vendor Transactions Section
-    if filtered_data:
-        elements.append(Paragraph("<b>VENDOR TRANSACTIONS</b>", styles['Heading2']))
-
-        # Prepare data for table
-        data = [['Date', 'Vendor', 'Type', 'Item', 'Qty', 'Rate', 'Amount']]
-
-        for vendor in filtered_data:
-            data.append([
-                vendor['date'],
-                vendor['vendor_name'][:15],
-                vendor['vendor_type'].title(),
-                vendor['item_name'][:20],
-                f"{vendor['quantity']:.2f}",
-                f"Rs. {vendor['rate']:.2f}",
-                f"Rs. {vendor['total_amount']:.2f}"
-            ])
-
-        # Create table
-        table = Table(data, repeatRows=1)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#000000')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8f9fa')),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ]))
-        elements.append(table)
-
-        # Add transaction totals
-        elements.append(Spacer(1, 10))
-        total_purchases = sum(vendor['total_amount'] for vendor in filtered_data)
-        total_text = Paragraph(f"<b>Total Purchases: Rs. {total_purchases:,.2f}</b>", styles['Normal'])
-        elements.append(total_text)
-
-    # Payment History Section
-    if filtered_payments:
-        elements.append(Spacer(1, 15))
-        elements.append(Paragraph("<b>PAYMENT HISTORY</b>", styles['Heading2']))
-
-        payment_data = [['Date', 'Vendor', 'Method', 'Amount', 'Notes']]
-
-        for payment in filtered_payments:
-            payment_data.append([
-                payment['date'],
-                payment['vendor_name'][:15],
-                payment['method'],
-                f"Rs. {payment['amount']:.2f}",
-                payment['notes'][:25] if payment['notes'] else ""
-            ])
-
-        # Create payment table
-        payment_table = Table(payment_data, repeatRows=1)
-        payment_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ecf0f1')),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ]))
-        elements.append(payment_table)
-
-        # Add payment totals
-        elements.append(Spacer(1, 10))
-        total_payments = sum(payment['amount'] for payment in filtered_payments)
-        payment_text = Paragraph(f"<b>Total Payments: Rs. {total_payments:,.2f}</b>", styles['Normal'])
-        elements.append(payment_text)
-
-    # Summary Section
-    elements.append(Spacer(1, 15))
-    elements.append(Paragraph("<b>FINANCIAL SUMMARY</b>", styles['Heading2']))
-
-    if vendor_name:
-        # For specific vendor
-        total_debit = sum(v['total_amount'] for v in filtered_data)
-        total_credit = sum(p['amount'] for p in filtered_payments)
-        balance = total_debit - total_credit
-
-        summary_data = [
-            ["Total Debit (Purchases)", f"Rs. {total_debit:,.2f}"],
-            ["Total Credit (Payments)", f"Rs. {total_credit:,.2f}"],
-            ["Outstanding Balance", f"Rs. {balance:,.2f}"]
-        ]
-    else:
-        # For all vendors
-        total_debit = sum(v['total_amount'] for v in filtered_data)
-        total_credit = sum(p['amount'] for p in filtered_payments)
-        balance = total_debit - total_credit
-
-        summary_data = [
-            ["Total Debit (All Purchases)", f"Rs. {total_debit:,.2f}"],
-            ["Total Credit (All Payments)", f"Rs. {total_credit:,.2f}"],
-            ["Net Outstanding Balance", f"Rs. {balance:,.2f}"]
-        ]
-
-    summary_table = Table(summary_data, colWidths=[200, 100])
-    summary_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495e')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#bdc3c7')),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-    ]))
-    elements.append(summary_table)
-
-    # Add signature section
-    elements.append(Spacer(1, 25))
-
-    # Signature with smaller image and text above
-    try:
-        if os.path.exists("Asim Siganture.jpg"):
-            signature_img = Image("Asim Siganture.jpg", width=120, height=40)  # Smaller signature
-            elements.append(signature_img)
-    except:
-        pass
-
-    signature_text = Paragraph("Accountant Signature<br/><b>HMD Solutions</b>",
-                               ParagraphStyle(
-                                   'SignatureStyle',
-                                   parent=styles['Normal'],
-                                   fontSize=10,
-                                   spaceBefore=5,
-                                   alignment=1
-                               ))
-    elements.append(signature_text)
-
-    doc.build(elements, onFirstPage=add_watermark, onLaterPages=add_watermark)
-    buffer.seek(0)
-    return buffer
-
-
-@st.cache_data(ttl=300)
-def create_stock_pdf():
-    """Create PDF for chemical stock with professional watermark and signature"""
-    buffer = BytesIO()
-
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=40, bottomMargin=40)
-    elements = []
-
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=16,
-        spaceAfter=20,
-        textColor=colors.HexColor('#000000'),
-        alignment=1
-    )
-
-    # Title Section
-    title = Paragraph("HMD SOLUTIONS - CHEMICAL STOCK REPORT", title_style)
-    elements.append(title)
-    elements.append(Spacer(1, 15))
-
-    # Add chemical stock data
-    if st.session_state.chemicals:
-        data = [['ID', 'Chemical Name', 'Stock (KG)', 'Rate', 'Status']]
-
-        for chem in st.session_state.chemicals:
-            status = "Adequate"
-            if chem['stock'] < st.session_state.settings['low_stock_threshold']:
-                status = "Low Stock"
-            if chem['stock'] <= 0:
-                status = "Out of Stock"
-
-            data.append([
-                str(chem['id']),
-                chem['name'][:20],
-                f"{chem['stock']:.2f}",
-                f"Rs. {chem['rate']:.2f}",
-                status
-            ])
-
-        # Create table
-        table = Table(data, repeatRows=1)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#000000')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8f9fa')),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ]))
-        elements.append(table)
-
-        # Add summary
-        total_chemicals = len(st.session_state.chemicals)
-        low_stock = len([c for c in st.session_state.chemicals if
-                         0 < c['stock'] < st.session_state.settings['low_stock_threshold']])
-        out_of_stock = len([c for c in st.session_state.chemicals if c['stock'] <= 0])
-
-        elements.append(Spacer(1, 15))
-        summary_data = [
-            ["Total Chemicals", str(total_chemicals)],
-            ["Low Stock Items", str(low_stock)],
-            ["Out of Stock", str(out_of_stock)]
-        ]
-
-        summary_table = Table(summary_data, colWidths=[150, 80])
-        summary_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495e')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#bdc3c7')),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ]))
-        elements.append(summary_table)
-
-    else:
-        no_data = Paragraph("No chemical data available", styles['Heading2'])
-        elements.append(no_data)
-
-    # Add signature section
-    elements.append(Spacer(1, 25))
-
-    # Signature with smaller image and text above
-    try:
-        if os.path.exists("Asim Siganture.jpg"):
-            signature_img = Image("Asim Siganture.jpg", width=120, height=40)
-            elements.append(signature_img)
-    except:
-        pass
-
-    signature_text = Paragraph("Accountant Signature<br/><b>HMD Solutions</b>",
-                               ParagraphStyle(
-                                   'SignatureStyle',
-                                   parent=styles['Normal'],
-                                   fontSize=10,
-                                   spaceBefore=5,
-                                   alignment=1
-                               ))
-    elements.append(signature_text)
-
-    doc.build(elements, onFirstPage=add_watermark, onLaterPages=add_watermark)
-    buffer.seek(0)
-    return buffer
-
-
-# CSV Export/Import Functions
-def export_to_csv():
-    """Export all data to separate CSV files in a zip"""
-    buffer = BytesIO()
-    with zipfile.ZipFile(buffer, 'w') as zip_file:
-        # Chemicals CSV
-        if st.session_state.chemicals:
-            chem_df = pd.DataFrame(st.session_state.chemicals)
-            chem_csv = chem_df.to_csv(index=False)
-            zip_file.writestr('chemicals.csv', chem_csv)
-
-        # Packaging materials CSV
-        if st.session_state.packaging_materials:
-            pack_data = []
-            for p_type, material in st.session_state.packaging_materials.items():
-                pack_data.append({
-                    'Type': p_type,
-                    'Name': material['name'],
-                    'Stock': material['stock'],
-                    'Rate': material['rate']
-                })
-            pack_df = pd.DataFrame(pack_data)
-            pack_csv = pack_df.to_csv(index=False)
-            zip_file.writestr('packaging.csv', pack_csv)
-
-        # Vendor ledger CSV
-        if st.session_state.vendor_ledger:
-            vendor_df = pd.DataFrame(st.session_state.vendor_ledger)
-            vendor_csv = vendor_df.to_csv(index=False)
-            zip_file.writestr('vendor_ledger.csv', vendor_csv)
-
-        # Vendor payments CSV
-        if st.session_state.vendor_payments:
-            payments_df = pd.DataFrame(st.session_state.vendor_payments)
-            payments_csv = payments_df.to_csv(index=False)
-            zip_file.writestr('vendor_payments.csv', payments_csv)
-
-        # Production history CSV
-        if st.session_state.production_history:
-            production_df = pd.DataFrame(st.session_state.production_history)
-            production_csv = production_df.to_csv(index=False)
-            zip_file.writestr('production_history.csv', production_csv)
-
-        # Expenses CSV
-        if st.session_state.expenses:
-            expenses_df = pd.DataFrame(st.session_state.expenses)
-            expenses_csv = expenses_df.to_csv(index=False)
-            zip_file.writestr('expenses.csv', expenses_csv)
-
-    buffer.seek(0)
-    return buffer
-
-
-def create_sample_csv():
-    """Create sample CSV files for import template"""
-    buffer = BytesIO()
-    with zipfile.ZipFile(buffer, 'w') as zip_file:
-        # Sample Chemicals CSV
-        sample_chemicals = pd.DataFrame({
-            'id': [1, 2],
-            'name': ['Chemical A', 'Chemical B'],
-            'stock': [100.0, 50.0],
-            'rate': [500.0, 750.0]
-        })
-        chem_csv = sample_chemicals.to_csv(index=False)
-        zip_file.writestr('chemicals.csv', chem_csv)
-
-        # Sample Packaging CSV
-        sample_packaging = pd.DataFrame({
-            'Type': ['bottle', 'carton'],
-            'Name': ['Bottles (1L)', 'Cartons (12 bottles)'],
-            'Stock': [100, 50],
-            'Rate': [25.0, 120.0]
-        })
-        pack_csv = sample_packaging.to_csv(index=False)
-        zip_file.writestr('packaging.csv', pack_csv)
-
-        # Sample Vendor Ledger CSV
-        sample_vendor_ledger = pd.DataFrame({
-            'id': [1, 2],
-            'date': ['2024-01-15', '2024-01-16'],
-            'vendor_name': ['Vendor A', 'Vendor B'],
-            'vendor_type': ['chemical', 'bottle'],
-            'item_name': ['Chemical A', 'Bottles (1L)'],
-            'quantity': [50.0, 100.0],
-            'rate': [500.0, 25.0],
-            'total_amount': [25000.0, 2500.0],
-            'notes': ['Monthly purchase', 'Bulk order']
-        })
-        vendor_csv = sample_vendor_ledger.to_csv(index=False)
-        zip_file.writestr('vendor_ledger.csv', vendor_csv)
-
-        # Sample Vendor Payments CSV
-        sample_vendor_payments = pd.DataFrame({
-            'id': [1, 2],
-            'date': ['2024-01-20', '2024-01-25'],
-            'vendor_name': ['Vendor A', 'Vendor B'],
-            'amount': [15000.0, 2000.0],
-            'method': ['Bank Transfer', 'Cash'],
-            'notes': ['Partial payment', 'Full payment']
-        })
-        payments_csv = sample_vendor_payments.to_csv(index=False)
-        zip_file.writestr('vendor_payments.csv', payments_csv)
-
-        # Sample Expenses CSV
-        sample_expenses = pd.DataFrame({
-            'id': [1, 2],
-            'date': ['2024-01-15', '2024-01-20'],
-            'category': ['Office Supplies', 'Utilities'],
-            'description': ['Printer paper and ink', 'Electricity bill'],
-            'amount': [2500.0, 15000.0],
-            'payment_method': ['Cash', 'Bank Transfer']
-        })
-        expenses_csv = sample_expenses.to_csv(index=False)
-        zip_file.writestr('expenses.csv', expenses_csv)
-
-    buffer.seek(0)
-    return buffer
-
-
-def import_from_csv(uploaded_zip):
-    """Import data from CSV zip file"""
-    try:
-        with zipfile.ZipFile(uploaded_zip) as z:
-            imported_data = {}
-
-            # Read each CSV file if it exists
-            if 'chemicals.csv' in z.namelist():
-                with z.open('chemicals.csv') as f:
-                    chem_df = pd.read_csv(f)
-                    imported_data['chemicals'] = chem_df.to_dict('records')
-
-            if 'packaging.csv' in z.namelist():
-                with z.open('packaging.csv') as f:
-                    pack_df = pd.read_csv(f)
-                    packaging_materials = {}
-                    for _, row in pack_df.iterrows():
-                        packaging_materials[row['Type']] = {
-                            'name': row['Name'],
-                            'stock': row['Stock'],
-                            'rate': row['Rate']
-                        }
-                    imported_data['packaging_materials'] = packaging_materials
-
-            if 'vendor_ledger.csv' in z.namelist():
-                with z.open('vendor_ledger.csv') as f:
-                    vendor_df = pd.read_csv(f)
-                    imported_data['vendor_ledger'] = vendor_df.to_dict('records')
-
-            if 'vendor_payments.csv' in z.namelist():
-                with z.open('vendor_payments.csv') as f:
-                    payments_df = pd.read_csv(f)
-                    imported_data['vendor_payments'] = payments_df.to_dict('records')
-
-            if 'production_history.csv' in z.namelist():
-                with z.open('production_history.csv') as f:
-                    production_df = pd.read_csv(f)
-                    imported_data['production_history'] = production_df.to_dict('records')
-
-            if 'expenses.csv' in z.namelist():
-                with z.open('expenses.csv') as f:
-                    expenses_df = pd.read_csv(f)
-                    imported_data['expenses'] = expenses_df.to_dict('records')
-
-            return imported_data
-    except Exception as e:
-        raise Exception(f"Error importing CSV files: {str(e)}")
-
-
-# Main application
-def main():
-    # Header with professional design
-    st.markdown(
-        """
-        <div class="main-header">
-            <h1>🧪 HMD Solutions</h1>
-            <p>Chemical Management System | Professional Inventory & Vendor Management</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Sidebar navigation
-    with st.sidebar:
-        st.markdown(
-            """
-            <div style="background: linear-gradient(135deg, #000000 0%, #feb47b 100%); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;">
-                <h3>HMD Solutions </h3>
-            </div>
-            """,
-            unsafe_allow_html=True
+    .warning-message {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+    }
+    .info-card {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        margin: 1rem 0;
+    }
+    .form-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+    .data-table {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    .search-box {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Database setup for persistent storage
+def init_database():
+    conn = sqlite3.connect('hmd_solutions.db', check_same_thread=False)
+    c = conn.cursor()
+
+    # Create employees table with all columns
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS employees (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            initial_balance REAL DEFAULT 0,
+            phone TEXT DEFAULT '',
+            email TEXT DEFAULT '',
+            department TEXT DEFAULT '',
+            position TEXT DEFAULT '',
+            join_date TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-
-        menu = ["Dashboard", "Chemical Stock", "Packaging", "Production", "Vendor Ledger", "Vendor Payments", "Expense Management", "Reports",
-                "Settings", "Data Import/Export"]
-        choice = st.selectbox("Select Section", menu, label_visibility="collapsed")
-
-        # Quick Actions Section
-        st.markdown("---")
-        st.subheader("⚡ Quick Actions")
-        
-        # Quick action buttons
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("🧪 Add Chemical", use_container_width=True, key="quick_chem"):
-                quick_action_add_chemical()
-                
-            if st.button("💰 Add Payment", use_container_width=True, key="quick_payment"):
-                quick_action_add_payment()
-                
-        with col2:
-            if st.button("📊 View Dashboard", use_container_width=True, key="quick_dashboard"):
-                quick_action_view_dashboard()
-                
-            if st.button("🧾 Add Expense", use_container_width=True, key="quick_expense"):
-                quick_action_add_expense()
-
-        # Quick stats in sidebar
-        if st.session_state.chemicals:
-            st.markdown("---")
-            st.subheader("📈 Quick Stats")
-            total_chems = len(st.session_state.chemicals)
-            low_stock = len([c for c in st.session_state.chemicals if
-                             0 < c['stock'] < st.session_state.settings['low_stock_threshold']])
-            total_vendors = len(set([v['vendor_name'] for v in
-                                     st.session_state.vendor_ledger])) if st.session_state.vendor_ledger else 0
-            total_expenses = sum(expense['amount'] for expense in st.session_state.expenses) if st.session_state.expenses else 0
-
-            st.metric("Chemicals", total_chems)
-            st.metric("Low Stock", low_stock)
-            st.metric("Vendors", total_vendors)
-            st.metric("Total Expenses", f"Rs. {total_expenses:,.0f}")
-
-        # Auto-save button
-        st.markdown("---")
-        if st.button("💾 Save Data", use_container_width=True):
-            auto_save()
-
-    # Dashboard
-    if choice == "Dashboard":
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.title("📊 Dashboard Overview")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Welcome section
-        if not st.session_state.chemicals and not st.session_state.packaging_materials:
-            st.info(
-                "👋 Welcome to HMD Solutions Chemical Management System! Start by adding chemicals and packaging materials.")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                if st.button("🧪 Add Chemicals", use_container_width=True, key="add_chem_btn"):
-                    st.session_state.current_page = "Chemical Stock"
-            with col2:
-                if st.button("📦 Add Packaging", use_container_width=True, key="add_pack_btn"):
-                    st.session_state.current_page = "Packaging"
-            with col3:
-                if st.button("⚙️ Setup Wizard", use_container_width=True, key="setup_btn"):
-                    st.session_state.current_page = "Settings"
-
-        # Quick actions
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.subheader("🚀 Quick Actions")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Quick action cards in 3 columns
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("🧪 Manage Chemicals", use_container_width=True, key="manage_chem"):
-                st.session_state.current_page = "Chemical Stock"
-            if st.button("📦 Manage Packaging", use_container_width=True, key="manage_pack"):
-                st.session_state.current_page = "Packaging"
-                
-        with col2:
-            if st.button("🏭 Production", use_container_width=True, key="prod_btn"):
-                st.session_state.current_page = "Production"
-            if st.button("💰 Vendor Payments", use_container_width=True, key="vendor_pay_btn"):
-                st.session_state.current_page = "Vendor Payments"
-                
-        with col3:
-            if st.button("🧾 Expense Management", use_container_width=True, key="expense_btn"):
-                st.session_state.current_page = "Expense Management"
-            if st.button("📊 Generate Reports", use_container_width=True, key="reports_btn"):
-                st.session_state.current_page = "Reports"
-
-        # Dashboard cards
-        total_chemicals, low_stock_count, out_of_stock_count, total_packaging, total_expenses, expense_categories = update_dashboard()
-
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.subheader("📈 Business Overview")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Total Chemicals", total_chemicals)
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col2:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Low Stock Items", low_stock_count, delta_color="inverse")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col3:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Out of Stock", out_of_stock_count, delta_color="off")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col4:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Packaging Items", total_packaging)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        # Expense overview
-        if st.session_state.expenses:
-            st.markdown('<div class="section-header">', unsafe_allow_html=True)
-            st.subheader("💰 Expense Overview")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Total Expenses", f"Rs. {total_expenses:,.2f}")
-                st.markdown('</div>', unsafe_allow_html=True)
-            with col2:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Expense Categories", expense_categories)
-                st.markdown('</div>', unsafe_allow_html=True)
-            with col3:
-                # Calculate monthly expense
-                current_month = datetime.now().month
-                monthly_expenses = sum(
-                    expense['amount'] for expense in st.session_state.expenses 
-                    if datetime.strptime(expense['date'], "%Y-%m-%d").month == current_month
-                )
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("This Month", f"Rs. {monthly_expenses:,.2f}")
-                st.markdown('</div>', unsafe_allow_html=True)
-
-        # Vendor financial overview
-        if st.session_state.vendor_ledger:
-            st.markdown('<div class="section-header">', unsafe_allow_html=True)
-            st.subheader("💰 Vendor Financial Overview")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            total_purchases = sum(vendor['total_amount'] for vendor in st.session_state.vendor_ledger)
-            total_payments = sum(payment['amount'] for payment in st.session_state.vendor_payments)
-            outstanding_balance = total_purchases - total_payments
-
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Total Purchases", f"Rs. {total_purchases:,.2f}")
-                st.markdown('</div>', unsafe_allow_html=True)
-            with col2:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Total Payments", f"Rs. {total_payments:,.2f}")
-                st.markdown('</div>', unsafe_allow_html=True)
-            with col3:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Outstanding Balance", f"Rs. {outstanding_balance:,.2f}",
-                          delta=f"{-outstanding_balance:,.2f}" if outstanding_balance > 0 else None,
-                          delta_color="inverse" if outstanding_balance > 0 else "normal")
-                st.markdown('</div>', unsafe_allow_html=True)
-
-        # Recent vendor transactions
-        if st.session_state.vendor_ledger:
-            st.markdown('<div class="section-header">', unsafe_allow_html=True)
-            st.subheader("📋 Recent Vendor Transactions")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            recent_vendors = st.session_state.vendor_ledger[-5:][::-1]
-            for vendor in recent_vendors:
-                st.markdown(f"""
-                <div class="vendor-card">
-                    <b>{vendor['vendor_name']}</b> - {vendor['item_name']}<br>
-                    <small>Date: {vendor['date']} | Amount: Rs. {vendor['total_amount']:,.2f}</small>
-                </div>
-                """, unsafe_allow_html=True)
-
-        # Recent expenses
-        if st.session_state.expenses:
-            st.markdown('<div class="section-header">', unsafe_allow_html=True)
-            st.subheader("🧾 Recent Expenses")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            recent_expenses = st.session_state.expenses[-5:][::-1]
-            for expense in recent_expenses:
-                st.markdown(f"""
-                <div class="expense-card">
-                    <b>{expense['category']}</b> - {expense['description']}<br>
-                    <small>Date: {expense['date']} | Amount: Rs. {expense['amount']:,.2f} | Method: {expense['payment_method']}</small>
-                </div>
-                """, unsafe_allow_html=True)
-
-    # Expense Management Section
-    elif choice == "Expense Management":
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.title("🧾 Expense Management")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Add expense form
-        with st.form("expense_form", clear_on_submit=True):
-            st.subheader("💳 Add New Expense")
-
-            col1, col2 = st.columns(2)
-            with col1:
-                expense_date = st.date_input("Expense Date", value=datetime.now(), key="expense_date")
-                expense_category = st.selectbox("Category", 
-                                               ["Office Supplies", "Utilities", "Transport", "Marketing", 
-                                                "Maintenance", "Salaries", "Raw Materials", "Other"],
-                                               key="expense_category")
-            with col2:
-                expense_amount = st.number_input("Amount (Rs.)", min_value=0.0, step=100.0, value=0.0, key="expense_amount")
-                payment_method = st.selectbox("Payment Method", ["Cash", "Bank Transfer", "Cheque", "Online", "Card"],
-                                              key="expense_payment_method")
-
-            expense_description = st.text_area("Description", placeholder="Enter expense details...", key="expense_description")
-
-            add_expense = st.form_submit_button("💾 Add Expense", type="primary", use_container_width=True)
-
-        if add_expense:
-            if expense_amount > 0 and expense_description:
-                # Add to expenses
-                expense_record = {
-                    'id': get_next_expense_id(),
-                    'date': expense_date.strftime("%Y-%m-%d"),
-                    'category': expense_category,
-                    'description': expense_description,
-                    'amount': expense_amount,
-                    'payment_method': payment_method
-                }
-                st.session_state.expenses.append(expense_record)
-                auto_save()
-                show_alert(f"Expense of Rs. {expense_amount:,.2f} added successfully under {expense_category}!", "success")
-                st.rerun()
-            else:
-                show_alert("Please enter a valid amount and description", "error")
-
-        # Edit Expense Section
-        if st.session_state.expenses:
-            st.markdown('<div class="section-header">', unsafe_allow_html=True)
-            st.subheader("✏️ Edit Expense")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            expense_to_edit = st.selectbox("Select Expense to Edit",
-                                           [f"{e['id']} - {e['category']} - Rs. {e['amount']} - {e['date']}"
-                                            for e in st.session_state.expenses],
-                                           key="edit_expense_select")
-
-            if expense_to_edit:
-                expense_id = int(expense_to_edit.split(" - ")[0])
-                expense = next((e for e in st.session_state.expenses if e['id'] == expense_id), None)
-
-                if expense:
-                    with st.form("edit_expense_form"):
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            edit_category = st.selectbox("Category", 
-                                                        ["Office Supplies", "Utilities", "Transport", "Marketing", 
-                                                         "Maintenance", "Salaries", "Raw Materials", "Other"],
-                                                        index=["Office Supplies", "Utilities", "Transport", "Marketing", 
-                                                               "Maintenance", "Salaries", "Raw Materials", "Other"].index(expense['category']),
-                                                        key="edit_expense_category")
-                            edit_amount = st.number_input("Amount", value=expense['amount'], key="edit_expense_amount")
-                        with col2:
-                            edit_date = st.date_input("Date", value=datetime.strptime(expense['date'], "%Y-%m-%d"),
-                                                      key="edit_expense_date")
-                            edit_method = st.selectbox("Payment Method", ["Cash", "Bank Transfer", "Cheque", "Online", "Card"],
-                                                       index=["Cash", "Bank Transfer", "Cheque", "Online", "Card"].index(expense['payment_method']),
-                                                       key="edit_expense_method")
-
-                        edit_description = st.text_area("Description", value=expense['description'], key="edit_expense_description")
-
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            update_expense = st.form_submit_button("🔄 Update Expense", use_container_width=True)
-                        with col2:
-                            delete_expense = st.form_submit_button("🗑️ Delete Expense", type="secondary",
-                                                                   use_container_width=True)
-
-                        if update_expense:
-                            expense['category'] = edit_category
-                            expense['amount'] = edit_amount
-                            expense['date'] = edit_date.strftime("%Y-%m-%d")
-                            expense['payment_method'] = edit_method
-                            expense['description'] = edit_description
-                            auto_save()
-                            show_alert("Expense updated successfully!", "success")
-                            st.rerun()
-
-                        if delete_expense:
-                            st.session_state.expenses = [e for e in st.session_state.expenses if e['id'] != expense_id]
-                            auto_save()
-                            show_alert("Expense deleted successfully!", "success")
-                            st.rerun()
-
-        # Expense summary
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.subheader("📊 Expense Summary")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        if st.session_state.expenses:
-            category_totals = calculate_expense_totals()
-            total_expenses = sum(expense['amount'] for expense in st.session_state.expenses)
-
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.metric("Total Expenses", f"Rs. {total_expenses:,.2f}")
-                st.metric("Number of Expenses", len(st.session_state.expenses))
-                
-            with col2:
-                st.metric("Categories", len(category_totals))
-                
-                # Current month expenses
-                current_month = datetime.now().month
-                monthly_expenses = sum(
-                    expense['amount'] for expense in st.session_state.expenses 
-                    if datetime.strptime(expense['date'], "%Y-%m-%d").month == current_month
-                )
-                st.metric("This Month", f"Rs. {monthly_expenses:,.2f}")
-
-            # Category breakdown
-            st.subheader("Category Breakdown")
-            for category, amount in category_totals.items():
-                percentage = (amount / total_expenses) * 100
-                st.write(f"**{category}**: Rs. {amount:,.2f} ({percentage:.1f}%)")
-                st.progress(percentage / 100)
-
-        else:
-            st.info("No expenses recorded yet.")
-
-        # Expense history
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.subheader("📋 Expense History")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        if st.session_state.expenses:
-            for expense in st.session_state.expenses[::-1]:  # Show latest first
-                st.markdown(f"""
-                <div class="expense-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <b>{expense['category']}</b><br>
-                            <small>{expense['description']}</small><br>
-                            <small>Date: {expense['date']} | Method: {expense['payment_method']}</small>
-                        </div>
-                        <div style="text-align: right;">
-                            <b style="color: #e74c3c; font-size: 1.2em;">Rs. {expense['amount']:,.2f}</b>
-                            <br>
-                            <small>Expense</small>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            # PDF Download button
-            st.markdown('<div class="section-header">', unsafe_allow_html=True)
-            st.subheader("📄 Download Expense Report")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            if st.button("📄 Generate Expense Report PDF", use_container_width=True, key="gen_expense_pdf"):
-                with st.spinner("Generating PDF..."):
-                    pdf_buffer = create_expense_pdf()
-                    st.download_button(
-                        label="⬇️ Download Expense PDF",
-                        data=pdf_buffer,
-                        file_name=f"HMD_Expense_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True,
-                        key="download_expense_pdf"
-                    )
-        else:
-            st.info("No expense records available.")
-
-    # Vendor Payments Management
-    elif choice == "Vendor Payments":
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.title("💰 Vendor Payments Management")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Add payment form
-        with st.form("payment_form", clear_on_submit=True):
-            st.subheader("💳 Add New Payment")
-
-            col1, col2 = st.columns(2)
-            with col1:
-                # Get unique vendor names
-                vendor_names = sorted(set([v['vendor_name'] for v in
-                                           st.session_state.vendor_ledger])) if st.session_state.vendor_ledger else []
-                selected_vendor = st.selectbox("Select Vendor", [""] + vendor_names, key="payment_vendor")
-
-                payment_amount = st.number_input("Payment Amount (Rs.)", min_value=0.0, step=100.0, value=0.0,
-                                                 key="payment_amount")
-
-            with col2:
-                payment_date = st.date_input("Payment Date", value=datetime.now(), key="payment_date")
-                payment_method = st.selectbox("Payment Method", ["Bank Transfer", "Cash", "Cheque", "Online"],
-                                              key="payment_method")
-
-            payment_notes = st.text_area("Payment Notes", placeholder="Enter payment details or reference number...",
-                                         key="payment_notes")
-
-            add_payment = st.form_submit_button("💾 Add Payment", type="primary", use_container_width=True)
-
-        if add_payment:
-            if selected_vendor and payment_amount > 0:
-                # Add to vendor payments
-                payment_record = {
-                    'id': get_next_payment_id(),
-                    'date': payment_date.strftime("%Y-%m-%d"),
-                    'vendor_name': selected_vendor,
-                    'amount': payment_amount,
-                    'method': payment_method,
-                    'notes': payment_notes
-                }
-                st.session_state.vendor_payments.append(payment_record)
-                auto_save()
-                show_alert(f"Payment of Rs. {payment_amount:,.2f} added successfully for {selected_vendor}!", "success")
-                st.rerun()
-            else:
-                show_alert("Please select a vendor and enter a valid payment amount", "error")
-
-        # Edit Payment Section
-        if st.session_state.vendor_payments:
-            st.markdown('<div class="section-header">', unsafe_allow_html=True)
-            st.subheader("✏️ Edit Payment")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            payment_to_edit = st.selectbox("Select Payment to Edit",
-                                           [f"{p['id']} - {p['vendor_name']} - Rs. {p['amount']} - {p['date']}"
-                                            for p in st.session_state.vendor_payments],
-                                           key="edit_payment_select")
-
-            if payment_to_edit:
-                payment_id = int(payment_to_edit.split(" - ")[0])
-                payment = next((p for p in st.session_state.vendor_payments if p['id'] == payment_id), None)
-
-                if payment:
-                    with st.form("edit_payment_form"):
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            edit_vendor = st.text_input("Vendor Name", value=payment['vendor_name'],
-                                                        key="edit_payment_vendor")
-                            edit_amount = st.number_input("Amount", value=payment['amount'], key="edit_payment_amount")
-                        with col2:
-                            edit_date = st.date_input("Date", value=datetime.strptime(payment['date'], "%Y-%m-%d"),
-                                                      key="edit_payment_date")
-                            edit_method = st.selectbox("Method", ["Bank Transfer", "Cash", "Cheque", "Online"],
-                                                       index=["Bank Transfer", "Cash", "Cheque", "Online"].index(
-                                                           payment['method']),
-                                                       key="edit_payment_method")
-
-                        edit_notes = st.text_area("Notes", value=payment['notes'], key="edit_payment_notes")
-
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            update_payment = st.form_submit_button("🔄 Update Payment", use_container_width=True)
-                        with col2:
-                            delete_payment = st.form_submit_button("🗑️ Delete Payment", type="secondary",
-                                                                   use_container_width=True)
-
-                        if update_payment:
-                            payment['vendor_name'] = edit_vendor
-                            payment['amount'] = edit_amount
-                            payment['date'] = edit_date.strftime("%Y-%m-%d")
-                            payment['method'] = edit_method
-                            payment['notes'] = edit_notes
-                            auto_save()
-                            show_alert("Payment updated successfully!", "success")
-                            st.rerun()
-
-                        if delete_payment:
-                            st.session_state.vendor_payments = [p for p in st.session_state.vendor_payments if
-                                                                p['id'] != payment_id]
-                            auto_save()
-                            show_alert("Payment deleted successfully!", "success")
-                            st.rerun()
-
-        # Vendor balances section
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.subheader("🏦 Vendor Balances")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        if st.session_state.vendor_ledger:
-            # Calculate balances for all vendors
-            vendor_balances = {}
-            for vendor in set([v['vendor_name'] for v in st.session_state.vendor_ledger]):
-                vendor_balances[vendor] = calculate_vendor_balance(vendor)
-
-            # Display vendor balances
-            for vendor, balance in vendor_balances.items():
-                balance_color = "🔴" if balance > 0 else "🟢"
-                st.markdown(f"""
-                <div class="vendor-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <b>{vendor}</b><br>
-                            <small>Outstanding Balance</small>
-                        </div>
-                        <div style="text-align: right;">
-                            <b style="color: {'#e74c3c' if balance > 0 else '#27ae60'}; font-size: 1.2em;">
-                                {balance_color} Rs. {abs(balance):,.2f}
-                            </b>
-                            <br>
-                            <small>{'Amount Due' if balance > 0 else 'No Dues'}</small>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.info("No vendor transactions available.")
-
-        # Payment history
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.subheader("📋 Payment History")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        if st.session_state.vendor_payments:
-            for payment in st.session_state.vendor_payments[::-1]:  # Show latest first
-                st.markdown(f"""
-                <div class="payment-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <b>{payment['vendor_name']}</b><br>
-                            <small>Date: {payment['date']} | Method: {payment['method']}</small>
-                            {f"<br><small>Notes: {payment['notes']}</small>" if payment['notes'] else ""}
-                        </div>
-                        <div style="text-align: right;">
-                            <b style="color: #27ae60; font-size: 1.2em;">Rs. {payment['amount']:,.2f}</b>
-                            <br>
-                            <small>Paid</small>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.info("No payment records available.")
-
-    # Vendor Ledger Management
-    elif choice == "Vendor Ledger":
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.title("🚚 Vendor Ledger Management")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        with st.form("vendor_form", clear_on_submit=True):
-            st.subheader("📝 Add Vendor Transaction")
-
-            col1, col2 = st.columns(2)
-
-            with col1:
-                vendor_name = st.text_input("Vendor Name", key="vendor_name", placeholder="Enter vendor name...")
-                vendor_type = st.selectbox("Vendor Type",
-                                           ["", "chemical", "bottle", "carton", "can", "shipper", "other"],
-                                           key="vendor_type")
-            with col2:
-                item_quantity = st.number_input("Quantity", min_value=0.0, step=0.1, value=0.0, key="item_qty")
-                item_rate = st.number_input("Rate (Per Unit)", min_value=0.0, step=0.1, value=0.0, key="item_rate")
-
-            # Item name based on vendor type
-            if vendor_type == "chemical" and st.session_state.chemicals:
-                item_name = st.selectbox("Item Name", [chem['name'] for chem in st.session_state.chemicals],
-                                         key="chem_item")
-            else:
-                item_name = st.text_input("Item Name", key="other_item", placeholder="Enter item name...")
-
-            transaction_date = st.date_input("Transaction Date", value=datetime.now(), key="trans_date")
-            transaction_notes = st.text_area("Notes", key="trans_notes", placeholder="Enter transaction details...")
-
-            add_transaction = st.form_submit_button("💾 Add Transaction", type="primary", use_container_width=True)
-
-        if add_transaction:
-            if vendor_name and vendor_type and item_name and item_quantity > 0 and item_rate > 0:
-                total_amount = item_quantity * item_rate
-
-                # Add to vendor ledger
-                vendor_transaction = {
-                    'id': get_next_vendor_id(),
-                    'date': transaction_date.strftime("%Y-%m-%d"),
-                    'vendor_name': vendor_name,
-                    'vendor_type': vendor_type,
-                    'item_name': item_name,
-                    'quantity': item_quantity,
-                    'rate': item_rate,
-                    'total_amount': total_amount,
-                    'notes': transaction_notes
-                }
-                st.session_state.vendor_ledger.append(vendor_transaction)
-
-                # Update stock if applicable
-                if vendor_type == "chemical":
-                    chemical = next((chem for chem in st.session_state.chemicals if chem['name'] == item_name), None)
-                    if chemical:
-                        chemical['stock'] += item_quantity
-                        chemical['rate'] = item_rate
-                elif vendor_type in ["bottle", "carton", "can", "box"]:
-                    if vendor_type not in st.session_state.packaging_materials:
-                        packaging_names = {
-                            "bottle": "Bottles (1L)",
-                            "carton": "Cartons (12 bottles)",
-                            "can": "Cans (25L)",
-                            "box": "Boxes (1KG)"
-                        }
-                        st.session_state.packaging_materials[vendor_type] = {
-                            'name': packaging_names[vendor_type],
-                            'stock': 0,
-                            'rate': 0
-                        }
-                    st.session_state.packaging_materials[vendor_type]['stock'] += item_quantity
-                    st.session_state.packaging_materials[vendor_type]['rate'] = item_rate
-
-                auto_save()
-                show_alert(f"Vendor transaction added successfully! Total amount: Rs. {total_amount:,.2f}", "success")
-                st.rerun()
-            else:
-                show_alert("Please fill all required fields with valid values", "error")
-
-        # Edit Vendor Transaction Section
-        if st.session_state.vendor_ledger:
-            st.markdown('<div class="section-header">', unsafe_allow_html=True)
-            st.subheader("✏️ Edit Vendor Transaction")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            vendor_to_edit = st.selectbox("Select Transaction to Edit",
-                                          [
-                                              f"{v['id']} - {v['vendor_name']} - {v['item_name']} - Rs. {v['total_amount']}"
-                                              for v in st.session_state.vendor_ledger],
-                                          key="edit_vendor_select")
-
-            if vendor_to_edit:
-                vendor_id = int(vendor_to_edit.split(" - ")[0])
-                vendor = next((v for v in st.session_state.vendor_ledger if v['id'] == vendor_id), None)
-
-                if vendor:
-                    with st.form("edit_vendor_form"):
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            edit_vendor_name = st.text_input("Vendor Name", value=vendor['vendor_name'],
-                                                             key="edit_vendor_name")
-                            edit_vendor_type = st.selectbox("Vendor Type",
-                                                            ["chemical", "bottle", "carton", "can", "shipper", "other"],
-                                                            index=["chemical", "bottle", "carton", "can", "shipper",
-                                                                   "other"].index(vendor['vendor_type']),
-                                                            key="edit_vendor_type")
-                        with col2:
-                            edit_quantity = st.number_input("Quantity", value=vendor['quantity'], key="edit_vendor_qty")
-                            edit_rate = st.number_input("Rate", value=vendor['rate'], key="edit_vendor_rate")
-
-                        edit_item_name = st.text_input("Item Name", value=vendor['item_name'], key="edit_vendor_item")
-                        edit_date = st.date_input("Date", value=datetime.strptime(vendor['date'], "%Y-%m-%d"),
-                                                  key="edit_vendor_date")
-                        edit_notes = st.text_area("Notes", value=vendor['notes'], key="edit_vendor_notes")
-
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            update_vendor = st.form_submit_button("🔄 Update Transaction", use_container_width=True)
-                        with col2:
-                            delete_vendor = st.form_submit_button("🗑️ Delete Transaction", type="secondary",
-                                                                  use_container_width=True)
-
-                        if update_vendor:
-                            vendor['vendor_name'] = edit_vendor_name
-                            vendor['vendor_type'] = edit_vendor_type
-                            vendor['item_name'] = edit_item_name
-                            vendor['quantity'] = edit_quantity
-                            vendor['rate'] = edit_rate
-                            vendor['total_amount'] = edit_quantity * edit_rate
-                            vendor['date'] = edit_date.strftime("%Y-%m-%d")
-                            vendor['notes'] = edit_notes
-                            auto_save()
-                            show_alert("Vendor transaction updated successfully!", "success")
-                            st.rerun()
-
-                        if delete_vendor:
-                            st.session_state.vendor_ledger = [v for v in st.session_state.vendor_ledger if
-                                                              v['id'] != vendor_id]
-                            auto_save()
-                            show_alert("Vendor transaction deleted successfully!", "success")
-                            st.rerun()
-
-        # Show vendor ledger
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.subheader("📋 Vendor Transaction History")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        if st.session_state.vendor_ledger:
-            display_ledger = st.session_state.vendor_ledger[-50:]  # Show last 50 records
-
-            vendor_data = []
-            for transaction in display_ledger:
-                vendor_data.append({
-                    'ID': transaction['id'],
-                    'Date': transaction['date'],
-                    'Vendor Name': transaction['vendor_name'],
-                    'Vendor Type': transaction['vendor_type'].title(),
-                    'Item Name': transaction['item_name'],
-                    'Quantity': f"{transaction['quantity']:.2f}",
-                    'Rate': f"Rs. {transaction['rate']:.2f}",
-                    'Total Amount': f"Rs. {transaction['total_amount']:,.2f}",
-                    'Notes': transaction['notes']
-                })
-
-            df = pd.DataFrame(vendor_data)
-            st.dataframe(df, use_container_width=True, height=400)
-
-            # PDF Download buttons for different vendor types
-            st.markdown('<div class="section-header">', unsafe_allow_html=True)
-            st.subheader("📄 Download Vendor Ledger Reports")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            # Get unique vendor types
-            vendor_types = sorted(set([v['vendor_type'] for v in st.session_state.vendor_ledger]))
-
-            col1, col2 = st.columns(2)
-
-            with col1:
-                if st.button("📄 All Vendors PDF Report", use_container_width=True, key="all_vendors_pdf"):
-                    with st.spinner("🔄 Generating professional PDF report..."):
-                        pdf_buffer = create_vendor_ledger_pdf()
-                        st.download_button(
-                            label="⬇️ Download Complete Vendor Ledger PDF",
-                            data=pdf_buffer,
-                            file_name=f"HMD_Complete_Vendor_Ledger_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                            mime="application/pdf",
-                            use_container_width=True,
-                            key="download_complete_vendor_pdf"
-                        )
-
-            with col2:
-                if st.button("🔄 Refresh Data", use_container_width=True, key="refresh_vendor"):
-                    st.rerun()
-
-            # Separate PDFs for each vendor type
-            if vendor_types:
-                st.markdown("### Vendor Type Specific Reports")
-                cols = st.columns(3)
-                for i, vendor_type in enumerate(vendor_types):
-                    col_idx = i % 3
-                    with cols[col_idx]:
-                        if st.button(f"📄 {vendor_type.title()} Vendor PDF", use_container_width=True,
-                                     key=f"{vendor_type}_pdf"):
-                            with st.spinner(f"🔄 Generating {vendor_type} vendor PDF..."):
-                                pdf_buffer = create_vendor_ledger_pdf(vendor_type=vendor_type)
-                                st.download_button(
-                                    label=f"⬇️ Download {vendor_type.title()} Vendor PDF",
-                                    data=pdf_buffer,
-                                    file_name=f"HMD_{vendor_type.title()}_Vendor_Ledger_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                                    mime="application/pdf",
-                                    use_container_width=True,
-                                    key=f"download_{vendor_type}_pdf"
-                                )
-
-            # Vendor summary
-            st.markdown('<div class="section-header">', unsafe_allow_html=True)
-            st.subheader("📊 Vendor Summary")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            vendor_summary = {}
-            for transaction in st.session_state.vendor_ledger:
-                vendor = transaction['vendor_name']
-                if vendor not in vendor_summary:
-                    vendor_summary[vendor] = 0
-                vendor_summary[vendor] += transaction['total_amount']
-
-            for vendor, total in vendor_summary.items():
-                balance = calculate_vendor_balance(vendor)
-                st.metric(
-                    label=f"{vendor}",
-                    value=f"Rs. {total:,.2f}",
-                    delta=f"Balance: Rs. {balance:,.2f}",
-                    delta_color="inverse" if balance > 0 else "normal"
-                )
-        else:
-            st.info("📝 No vendor transactions recorded yet. Start by adding your first transaction above.")
-
-    # Chemical Stock Management
-    elif choice == "Chemical Stock":
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.title("🧪 Chemical Stock Management")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Add new chemical
-        with st.expander("➕ Add New Chemical", expanded=False):
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                new_chemical_name = st.text_input("Chemical Name", key="new_chem_name")
-            with col2:
-                initial_stock = st.number_input("Initial Stock (KG)", min_value=0.0, step=0.1, value=0.0,
-                                                key="init_stock")
-            with col3:
-                chemical_rate = st.number_input("Rate (Per KG)", min_value=0.0, step=0.1, value=0.0, key="chem_rate")
-
-            if st.button("Add Chemical", type="primary", key="add_chem_btn2"):
-                if new_chemical_name:
-                    if any(chem['name'].lower() == new_chemical_name.lower() for chem in st.session_state.chemicals):
-                        show_alert("Chemical already exists!", "warning")
-                    else:
-                        new_chemical = {
-                            'id': get_next_chemical_id(),
-                            'name': new_chemical_name,
-                            'stock': initial_stock,
-                            'rate': chemical_rate
-                        }
-                        st.session_state.chemicals.append(new_chemical)
-                        auto_save()
-                        show_alert(f"Chemical '{new_chemical_name}' added successfully!", "success")
-                        st.rerun()
-                else:
-                    show_alert("Please enter a chemical name", "error")
-
-        # Add stock to existing chemical
-        with st.expander("📥 Add Stock to Existing Chemical", expanded=False):
-            if st.session_state.chemicals:
-                chemical_names = [chem['name'] for chem in st.session_state.chemicals]
-                selected_chemical = st.selectbox("Select Chemical", chemical_names, key="select_chem")
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    stock_to_add = st.number_input("Stock to Add (KG)", min_value=0.0, step=0.1, key="stock_add")
-                with col2:
-                    new_rate = st.number_input("New Rate (Optional)", min_value=0.0, step=0.1, key="new_rate")
-
-                if st.button("Add Stock", key="add_stock_btn"):
-                    chemical = next(chem for chem in st.session_state.chemicals if chem['name'] == selected_chemical)
-                    chemical['stock'] += stock_to_add
-                    if new_rate > 0:
-                        chemical['rate'] = new_rate
-                    auto_save()
-                    show_alert(f"Added {stock_to_add} KG to {selected_chemical}", "success")
-                    st.rerun()
-            else:
-                st.info("No chemicals available. Add chemicals first.")
-
-        # Edit Chemical Section
-        if st.session_state.chemicals:
-            with st.expander("✏️ Edit Chemical", expanded=False):
-                chemical_to_edit = st.selectbox("Select Chemical to Edit",
-                                                [f"{chem['id']} - {chem['name']} - Stock: {chem['stock']} KG"
-                                                 for chem in st.session_state.chemicals],
-                                                key="edit_chem_select")
-
-                if chemical_to_edit:
-                    chemical_id = int(chemical_to_edit.split(" - ")[0])
-                    chemical = next((chem for chem in st.session_state.chemicals if chem['id'] == chemical_id), None)
-
-                    if chemical:
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            edit_name = st.text_input("Chemical Name", value=chemical['name'], key="edit_chem_name")
-                        with col2:
-                            edit_stock = st.number_input("Stock (KG)", value=chemical['stock'], key="edit_chem_stock")
-                        with col3:
-                            edit_rate = st.number_input("Rate (Per KG)", value=chemical['rate'], key="edit_chem_rate")
-
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            update_chemical = st.button("🔄 Update Chemical", use_container_width=True)
-                        with col2:
-                            delete_chemical = st.button("🗑️ Delete Chemical", type="secondary",
-                                                        use_container_width=True)
-
-                        if update_chemical:
-                            chemical['name'] = edit_name
-                            chemical['stock'] = edit_stock
-                            chemical['rate'] = edit_rate
-                            auto_save()
-                            show_alert("Chemical updated successfully!", "success")
-                            st.rerun()
-
-                        if delete_chemical:
-                            st.session_state.chemicals = [chem for chem in st.session_state.chemicals if
-                                                          chem['id'] != chemical_id]
-                            auto_save()
-                            show_alert("Chemical deleted successfully!", "success")
-                            st.rerun()
-
-        # Show all chemicals
-        with st.expander("📋 All Chemicals Stock", expanded=True):
-            if st.session_state.chemicals:
-                chemical_data = []
-                for chem in st.session_state.chemicals:
-                    status = "Adequate"
-                    if chem['stock'] < st.session_state.settings['low_stock_threshold']:
-                        status = "Low Stock"
-                    if chem['stock'] <= 0:
-                        status = "Out of Stock"
-
-                    chemical_data.append({
-                        'ID': chem['id'],
-                        'Name': chem['name'],
-                        'Stock (KG)': f"{chem['stock']:.2f}",
-                        'Rate': f"Rs. {chem['rate']:.2f}",
-                        'Status': status
-                    })
-
-                df = pd.DataFrame(chemical_data)
-                st.dataframe(df, use_container_width=True, height=400)
-
-                # PDF Download button
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("📄 Generate Stock Report PDF", use_container_width=True, key="gen_stock_pdf"):
-                        with st.spinner("Generating PDF..."):
-                            pdf_buffer = create_stock_pdf()
-                            st.download_button(
-                                label="⬇️ Download Stock PDF",
-                                data=pdf_buffer,
-                                file_name=f"HMD_Chemical_Stock_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
-                                mime="application/pdf",
-                                use_container_width=True,
-                                key="download_stock_pdf"
-                            )
-            else:
-                st.info("No chemicals added yet.")
-
-    # Packaging Management
-    elif choice == "Packaging":
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.title("📦 Packaging Materials Management")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Add packaging materials
-        with st.expander("➕ Add Packaging Materials", expanded=False):
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                packaging_type = st.selectbox("Packaging Type",
-                                              ["", "bottle", "carton", "can", "box"],
-                                              format_func=lambda x: {
-                                                  "": "-- Select Type --",
-                                                  "bottle": "Bottles (1L)",
-                                                  "carton": "Cartons (12 bottles)",
-                                                  "can": "Cans (25L)",
-                                                  "box": "Boxes (1KG)"
-                                              }[x], key="pack_type")
-            with col2:
-                packaging_quantity = st.number_input("Quantity", min_value=0, step=1, value=0, key="pack_qty")
-            with col3:
-                packaging_rate = st.number_input("Rate (Per Unit)", min_value=0.0, step=0.1, value=0.0, key="pack_rate")
-
-            if st.button("Add Packaging Stock", type="primary", key="add_pack_btn2"):
-                if packaging_type:
-                    packaging_names = {
-                        "bottle": "Bottles (1L)",
-                        "carton": "Cartons (12 bottles)",
-                        "can": "Cans (25L)",
-                        "box": "Boxes (1KG)"
-                    }
-
-                    if packaging_type not in st.session_state.packaging_materials:
-                        st.session_state.packaging_materials[packaging_type] = {
-                            'name': packaging_names[packaging_type],
-                            'stock': 0,
-                            'rate': 0
-                        }
-
-                    st.session_state.packaging_materials[packaging_type]['stock'] += packaging_quantity
-                    if packaging_rate > 0:
-                        st.session_state.packaging_materials[packaging_type]['rate'] = packaging_rate
-
-                    auto_save()
-                    show_alert(f"Added {packaging_quantity} units to {packaging_names[packaging_type]}", "success")
-                    st.rerun()
-                else:
-                    show_alert("Please select packaging type", "error")
-
-        # Edit Packaging Section
-        if st.session_state.packaging_materials:
-            with st.expander("✏️ Edit Packaging Materials", expanded=False):
-                packaging_types = list(st.session_state.packaging_materials.keys())
-                selected_packaging = st.selectbox("Select Packaging to Edit", packaging_types, key="edit_pack_select")
-
-                if selected_packaging:
-                    material = st.session_state.packaging_materials[selected_packaging]
-
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        edit_pack_name = st.text_input("Description", value=material['name'], key="edit_pack_name")
-                    with col2:
-                        edit_pack_stock = st.number_input("Stock", value=material['stock'], key="edit_pack_stock")
-                    with col3:
-                        edit_pack_rate = st.number_input("Rate", value=material['rate'], key="edit_pack_rate")
-
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        update_packaging = st.button("🔄 Update Packaging", use_container_width=True)
-                    with col2:
-                        delete_packaging = st.button("🗑️ Delete Packaging", type="secondary", use_container_width=True)
-
-                    if update_packaging:
-                        material['name'] = edit_pack_name
-                        material['stock'] = edit_pack_stock
-                        material['rate'] = edit_pack_rate
-                        auto_save()
-                        show_alert("Packaging material updated successfully!", "success")
-                        st.rerun()
-
-                    if delete_packaging:
-                        del st.session_state.packaging_materials[selected_packaging]
-                        auto_save()
-                        show_alert("Packaging material deleted successfully!", "success")
-                        st.rerun()
-
-        # Show all packaging materials
-        with st.expander("📋 All Packaging Materials", expanded=True):
-            if st.session_state.packaging_materials:
-                packaging_data = []
-                for p_type, material in st.session_state.packaging_materials.items():
-                    status = "Adequate"
-                    if material['stock'] < st.session_state.settings['packaging_low_stock']:
-                        status = "Low Stock"
-                    if material['stock'] <= 0:
-                        status = "Out of Stock"
-
-                    packaging_data.append({
-                        'Type': p_type,
-                        'Description': material['name'],
-                        'Stock': material['stock'],
-                        'Rate': f"Rs. {material['rate']:.2f}",
-                        'Status': status
-                    })
-
-                df = pd.DataFrame(packaging_data)
-                st.dataframe(df, use_container_width=True)
-            else:
-                st.info("No packaging materials added yet.")
-
-    # Production Management
-    elif choice == "Production":
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.title("🏭 Production Batch Management")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        PRODUCT_FORMULAS = get_product_formulas()
-        PRODUCT_PACKAGING = get_product_packaging()
-
-        with st.form("production_form", clear_on_submit=False):
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                product_select = st.selectbox("Select Product", [""] + list(PRODUCT_FORMULAS.keys()), key="prod_select")
-            with col2:
-                batch_size = st.number_input("Batch Size", min_value=1,
-                                             value=st.session_state.settings['default_batch_size'], key="batch_size")
-            with col3:
-                packaging_unit = st.selectbox("Packaging Unit", ["bottle", "can", "box"], key="pack_unit")
-
-            calculate_requirements = st.form_submit_button("Calculate Requirements", type="primary",
-                                                           use_container_width=True)
-
-        if calculate_requirements and product_select:
-            formula = PRODUCT_FORMULAS[product_select]
-            base_batch_size = 550 if product_select == "NETONIL" else (
-                300 if product_select in ["URIVIT", "NURBUS", "PROLYTE-C"] else 500)
-
-            # Check for missing chemicals
-            missing_chemicals = []
-            for item in formula:
-                if not any(chem['name'] == item['chemical_name'] for chem in st.session_state.chemicals):
-                    missing_chemicals.append(item['chemical_name'])
-
-            if missing_chemicals:
-                show_alert(f"Missing chemicals: {', '.join(missing_chemicals)}. Please add them to inventory first.",
-                           "error")
-            else:
-                # Calculate requirements
-                st.subheader("Chemical Requirements")
-                requirements_data = []
-                total_price = 0
-
-                for item in formula:
-                    chemical = next(
-                        chem for chem in st.session_state.chemicals if chem['name'] == item['chemical_name'])
-                    required = (item[f'amount_per_{base_batch_size}'] / base_batch_size) * batch_size
-                    purchasing = max(0, required - chemical['stock'])
-                    remaining = max(0, chemical['stock'] - required)
-                    price = purchasing * chemical['rate']
-                    total_price += price
-
-                    requirements_data.append({
-                        'Chemical Name': chemical['name'],
-                        'Stock In-Hand': f"{chemical['stock']:.2f}",
-                        'Required': f"{required:.2f}",
-                        'R-Purchasing': f"{purchasing:.2f}",
-                        'Remaining': f"{remaining:.2f}",
-                        'Rate Per Kg': f"Rs. {chemical['rate']:.2f}",
-                        'Total Price': f"Rs. {price:.2f}"
-                    })
-
-                df_requirements = pd.DataFrame(requirements_data)
-                st.dataframe(df_requirements, use_container_width=True)
-
-                # Cost breakdown
-                st.subheader("Cost Breakdown")
-                per_unit_cost = total_price / batch_size
-                packing_material_cost = 125
-                total_packing_cost = per_unit_cost + packing_material_cost
-                percentage_cost = total_packing_cost * 0.2
-                ali_hassan_cost = 100 if PRODUCT_PACKAGING[product_select]['type'] == 'can' else 50
-                total_product_cost = total_packing_cost + percentage_cost + ali_hassan_cost
-
-                cost_data = {
-                    'Cost Item': [
-                        f'Per {PRODUCT_PACKAGING[product_select]["type"].title()} Cost',
-                        f'Packing Material Cost Per {PRODUCT_PACKAGING[product_select]["type"].title()}',
-                        '20% Percent',
-                        'Ali Hassan Cost',
-                        'TOTAL COST OF PRODUCT'
-                    ],
-                    'Amount': [
-                        f"Rs. {per_unit_cost:.3f}",
-                        f"Rs. {total_packing_cost:.3f}",
-                        f"Rs. {percentage_cost:.2f}",
-                        f"Rs. {ali_hassan_cost}",
-                        f"Rs. {total_product_cost:.2f}"
-                    ]
-                }
-
-                st.dataframe(pd.DataFrame(cost_data), use_container_width=True)
-
-                # Update stock after production
-                if st.button("Update Stock After Production", type="primary", use_container_width=True,
-                             key="update_stock"):
-                    # Update chemical stock
-                    for item in formula:
-                        chemical = next(
-                            chem for chem in st.session_state.chemicals if chem['name'] == item['chemical_name'])
-                        required = (item[f'amount_per_{base_batch_size}'] / base_batch_size) * batch_size
-                        chemical['stock'] = max(0, chemical['stock'] - required)
-
-                    # Update packaging stock
-                    packaging_type = PRODUCT_PACKAGING[product_select]['type']
-                    packaging_size = PRODUCT_PACKAGING[product_select]['size']
-
-                    if packaging_type == 'can':
-                        packaging_required = (batch_size + packaging_size - 1) // packaging_size
-                    else:
-                        packaging_required = batch_size / packaging_size
-
-                    if packaging_type in st.session_state.packaging_materials:
-                        st.session_state.packaging_materials[packaging_type]['stock'] = max(
-                            0, st.session_state.packaging_materials[packaging_type]['stock'] - packaging_required
-                        )
-
-                    # Update cartons if using bottles
-                    if packaging_type == 'bottle':
-                        cartons_required = (packaging_required + 11) // 12
-                        if 'carton' in st.session_state.packaging_materials:
-                            st.session_state.packaging_materials['carton']['stock'] = max(
-                                0, st.session_state.packaging_materials['carton']['stock'] - cartons_required
-                            )
-
-                    # Add to production history
-                    production_record = {
-                        'date': datetime.now().strftime("%Y-%m-%d"),
-                        'product': product_select,
-                        'batch_size': batch_size,
-                        'status': 'Completed'
-                    }
-                    st.session_state.production_history.append(production_record)
-
-                    auto_save()
-                    show_alert("Stock updated after production successfully!", "success")
-                    st.rerun()
-
-    # Reports
-    elif choice == "Reports":
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.title("📊 Reports")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            if st.button("📊 Chemical Stock Report", use_container_width=True, key="chem_report"):
-                if st.session_state.chemicals:
-                    chemical_data = []
-                    for chem in st.session_state.chemicals:
-                        chemical_data.append({
-                            'ID': chem['id'],
-                            'Chemical Name': chem['name'],
-                            'Current Stock (KG)': f"{chem['stock']:.2f}",
-                            'Rate (Per KG)': f"Rs. {chem['rate']:.2f}",
-                            'Status': 'Out of Stock' if chem['stock'] <= 0 else 'Low Stock' if chem['stock'] <
-                                                                                               st.session_state.settings[
-                                                                                                   'low_stock_threshold'] else 'Adequate'
-                        })
-
-                    df = pd.DataFrame(chemical_data)
-                    st.subheader("Chemical Stock Report")
-                    st.dataframe(df, use_container_width=True)
-
-                    # PDF Download for chemical report
-                    if st.button("📄 Download Chemical Report PDF", use_container_width=True, key="dl_chem_pdf"):
-                        with st.spinner("Generating PDF..."):
-                            pdf_buffer = create_stock_pdf()
-                            st.download_button(
-                                label="⬇️ Download Chemical Report",
-                                data=pdf_buffer,
-                                file_name=f"HMD_Chemical_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
-                                mime="application/pdf",
-                                use_container_width=True,
-                                key="dl_chem_report"
-                            )
-                else:
-                    st.info("No chemicals available for report.")
-
-            if st.button("📦 Packaging Stock Report", use_container_width=True, key="pack_report"):
-                if st.session_state.packaging_materials:
-                    packaging_data = []
-                    for p_type, material in st.session_state.packaging_materials.items():
-                        packaging_data.append({
-                            'Type': p_type,
-                            'Description': material['name'],
-                            'Current Stock': material['stock'],
-                            'Rate (Per Unit)': f"Rs. {material['rate']:.2f}",
-                            'Status': 'Out of Stock' if material['stock'] <= 0 else 'Low Stock' if material['stock'] <
-                                                                                                   st.session_state.settings[
-                                                                                                       'packaging_low_stock'] else 'Adequate'
-                        })
-
-                    df = pd.DataFrame(packaging_data)
-                    st.subheader("Packaging Stock Report")
-                    st.dataframe(df, use_container_width=True)
-                else:
-                    st.info("No packaging materials available for report.")
-
-            if st.button("🧾 Expense Report", use_container_width=True, key="expense_report"):
-                if st.session_state.expenses:
-                    expense_data = []
-                    for expense in st.session_state.expenses:
-                        expense_data.append({
-                            'ID': expense['id'],
-                            'Date': expense['date'],
-                            'Category': expense['category'],
-                            'Description': expense['description'],
-                            'Amount': f"Rs. {expense['amount']:,.2f}",
-                            'Payment Method': expense['payment_method']
-                        })
-
-                    df = pd.DataFrame(expense_data)
-                    st.subheader("Expense Report")
-                    st.dataframe(df, use_container_width=True)
-
-                    # PDF Download for expense report
-                    if st.button("📄 Download Expense Report PDF", use_container_width=True, key="dl_expense_pdf"):
-                        with st.spinner("Generating PDF..."):
-                            pdf_buffer = create_expense_pdf()
-                            st.download_button(
-                                label="⬇️ Download Expense Report",
-                                data=pdf_buffer,
-                                file_name=f"HMD_Expense_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
-                                mime="application/pdf",
-                                use_container_width=True,
-                                key="dl_expense_report"
-                            )
-                else:
-                    st.info("No expenses available for report.")
-
-        with col2:
-            if st.button("🚚 Vendor Ledger Report", use_container_width=True, key="vendor_report"):
-                if st.session_state.vendor_ledger:
-                    vendor_data = []
-                    for transaction in st.session_state.vendor_ledger[-50:]:
-                        vendor_data.append({
-                            'ID': transaction['id'],
-                            'Date': transaction['date'],
-                            'Vendor Name': transaction['vendor_name'],
-                            'Vendor Type': transaction['vendor_type'],
-                            'Item Name': transaction['item_name'],
-                            'Quantity': transaction['quantity'],
-                            'Rate': f"Rs. {transaction['rate']:.2f}",
-                            'Total Amount': f"Rs. {transaction['total_amount']:,.2f}",
-                            'Notes': transaction['notes']
-                        })
-
-                    df = pd.DataFrame(vendor_data)
-                    st.subheader("Vendor Ledger Report")
-                    st.dataframe(df, use_container_width=True)
-
-                    # PDF Download for vendor report
-                    if st.button("📄 Download Vendor Report PDF", use_container_width=True, key="dl_vendor_pdf"):
-                        with st.spinner("Generating PDF..."):
-                            pdf_buffer = create_vendor_ledger_pdf()
-                            st.download_button(
-                                label="⬇️ Download Vendor Report",
-                                data=pdf_buffer,
-                                file_name=f"HMD_Vendor_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
-                                mime="application/pdf",
-                                use_container_width=True,
-                                key="dl_vendor_report"
-                            )
-                else:
-                    st.info("No vendor transactions available for report.")
-
-            if st.button("⚠️ Low Stock Alert Report", use_container_width=True, key="low_stock_report"):
-                low_stock_chemicals = [chem for chem in st.session_state.chemicals if
-                                       0 < chem['stock'] < st.session_state.settings['low_stock_threshold']]
-                out_of_stock_chemicals = [chem for chem in st.session_state.chemicals if chem['stock'] <= 0]
-                low_stock_packaging = [material for material in st.session_state.packaging_materials.values() if
-                                       0 < material['stock'] < st.session_state.settings['packaging_low_stock']]
-                out_of_stock_packaging = [material for material in st.session_state.packaging_materials.values() if
-                                          material['stock'] <= 0]
-
-                if any([low_stock_chemicals, out_of_stock_chemicals, low_stock_packaging, out_of_stock_packaging]):
-                    st.subheader("Low Stock Alert Report")
-
-                    if out_of_stock_chemicals:
-                        st.error("🚨 OUT OF STOCK - CHEMICALS (IMMEDIATE ACTION REQUIRED)")
-                        for chem in out_of_stock_chemicals:
-                            st.write(f"- {chem['name']}: 0.00 KG")
-
-                    if low_stock_chemicals:
-                        st.warning("⚠️ LOW STOCK - CHEMICALS (NEEDS ATTENTION)")
-                        for chem in low_stock_chemicals:
-                            st.write(f"- {chem['name']}: {chem['stock']:.2f} KG")
-
-                    if out_of_stock_packaging:
-                        st.error("🚨 OUT OF STOCK - PACKAGING (IMMEDIATE ACTION REQUIRED)")
-                        for material in out_of_stock_packaging:
-                            st.write(f"- {material['name']}: 0 units")
-
-                    if low_stock_packaging:
-                        st.warning("⚠️ LOW STOCK - PACKAGING (NEEDS ATTENTION)")
-                        for material in low_stock_packaging:
-                            st.write(f"- {material['name']}: {material['stock']} units")
-                else:
-                    st.success("✅ No low stock items. All inventory levels are adequate.")
-
-    # Settings
-    elif choice == "Settings":
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.title("⚙️ System Settings")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        with st.form("settings_form"):
-            st.subheader("Company Settings")
-            company_name = st.text_input("Company Name", value=st.session_state.settings['company_name'],
-                                         key="comp_name")
-
-            st.subheader("Production Settings")
-            default_batch_size = st.number_input("Default Batch Size",
-                                                 min_value=1,
-                                                 value=st.session_state.settings['default_batch_size'],
-                                                 key="def_batch_size")
-
-            st.subheader("Stock Alert Thresholds")
-            col1, col2 = st.columns(2)
-            with col1:
-                low_stock_threshold = st.number_input("Low Stock Threshold (KG)",
-                                                      min_value=0.1,
-                                                      step=0.1,
-                                                      value=float(st.session_state.settings['low_stock_threshold']),
-                                                      key="low_stock_thresh")
-            with col2:
-                packaging_low_stock = st.number_input("Packaging Low Stock Threshold",
-                                                      min_value=1,
-                                                      value=st.session_state.settings['packaging_low_stock'],
-                                                      key="pack_low_stock")
-
-            save_settings = st.form_submit_button("Save Settings", type="primary", use_container_width=True)
-
-        if save_settings:
-            st.session_state.settings = {
-                'company_name': company_name,
-                'default_batch_size': int(default_batch_size),
-                'low_stock_threshold': float(low_stock_threshold),
-                'packaging_low_stock': int(packaging_low_stock)
+    ''')
+
+    # Create transactions table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS transactions (
+            id TEXT PRIMARY KEY,
+            employee_id TEXT,
+            type TEXT NOT NULL,
+            amount REAL NOT NULL,
+            description TEXT NOT NULL,
+            category TEXT DEFAULT '',
+            date TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (employee_id) REFERENCES employees (id)
+        )
+    ''')
+
+    # Create expenses table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS expenses (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            description TEXT NOT NULL,
+            amount REAL NOT NULL,
+            category TEXT DEFAULT '',
+            employee_name TEXT DEFAULT '',
+            date TEXT NOT NULL,
+            status TEXT DEFAULT 'Pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # Create settings table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            id TEXT PRIMARY KEY,
+            company_name TEXT DEFAULT 'HMD Solutions',
+            company_address TEXT DEFAULT 'Karachi, Pakistan',
+            company_phone TEXT DEFAULT '+92-3207429422',
+            company_email TEXT DEFAULT 'info@hmdsolutions.com',
+            currency TEXT DEFAULT 'PKR',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # Insert default settings if not exists
+    c.execute('''
+        INSERT OR IGNORE INTO settings (id, company_name, company_address, company_phone, company_email, currency)
+        VALUES ('default', 'HMD Solutions', 'Karachi, Pakistan', '+92-3207429422', 'info@hmdsolutions.com', 'PKR')
+    ''')
+
+    # Check and add missing columns to employees table
+    c.execute("PRAGMA table_info(employees)")
+    existing_columns = [column[1] for column in c.fetchall()]
+    
+    # Add missing columns if they don't exist
+    missing_columns = {
+        'phone': 'TEXT DEFAULT ""',
+        'email': 'TEXT DEFAULT ""', 
+        'department': 'TEXT DEFAULT ""',
+        'position': 'TEXT DEFAULT ""',
+        'join_date': 'TEXT DEFAULT ""'
+    }
+    
+    for column_name, column_type in missing_columns.items():
+        if column_name not in existing_columns:
+            try:
+                c.execute(f'ALTER TABLE employees ADD COLUMN {column_name} {column_type}')
+                st.success(f"Added missing column: {column_name}")
+            except Exception as e:
+                st.warning(f"Could not add column {column_name}: {str(e)}")
+
+    conn.commit()
+    conn.close()
+
+def get_db_connection():
+    return sqlite3.connect('hmd_solutions.db', check_same_thread=False)
+
+class SettingsManager:
+    def __init__(self):
+        init_database()
+
+    def get_settings(self):
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('SELECT * FROM settings WHERE id = "default"')
+        row = c.fetchone()
+        conn.close()
+        if row:
+            return {
+                'id': row[0],
+                'company_name': row[1],
+                'company_address': row[2],
+                'company_phone': row[3],
+                'company_email': row[4],
+                'currency': row[5],
+                'created_at': row[6]
             }
-            auto_save()
-            show_alert("Settings saved successfully!", "success")
+        return None
+
+    def update_settings(self, company_name, company_address, company_phone, company_email, currency):
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('''
+            UPDATE settings 
+            SET company_name = ?, company_address = ?, company_phone = ?, company_email = ?, currency = ?
+            WHERE id = "default"
+        ''', (company_name, company_address, company_phone, company_email, currency))
+        conn.commit()
+        conn.close()
+
+class EmployeeLedger:
+    def __init__(self):
+        init_database()
+    
+    def add_employee(self, name, initial_balance=0, phone="", email="", department="", position="", join_date=None):
+        conn = get_db_connection()
+        c = conn.cursor()
+        employee_id = str(uuid.uuid4())
+        
+        if join_date is None:
+            join_date = datetime.now().strftime('%Y-%m-%d')
+        
+        try:
+            c.execute('''
+                INSERT INTO employees (id, name, initial_balance, phone, email, department, position, join_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (employee_id, name, initial_balance, phone, email, department, position, join_date))
+            
+            conn.commit()
+            return employee_id
+        except Exception as e:
+            st.error(f"Error adding employee: {str(e)}")
+            return None
+        finally:
+            conn.close()
+    
+    def get_employees(self, search_query=""):
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        try:
+            if search_query:
+                c.execute('''
+                    SELECT * FROM employees 
+                    WHERE name LIKE ? OR department LIKE ? OR position LIKE ? OR email LIKE ?
+                    ORDER BY name
+                ''', (f'%{search_query}%', f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'))
+            else:
+                c.execute('SELECT * FROM employees ORDER BY name')
+                
+            rows = c.fetchall()
+            employees = []
+            
+            for row in rows:
+                employee = {
+                    'id': row[0], 
+                    'name': row[1], 
+                    'initial_balance': row[2] if len(row) > 2 else 0,
+                    'phone': row[3] if len(row) > 3 else "",
+                    'email': row[4] if len(row) > 4 else "",
+                    'department': row[5] if len(row) > 5 else "",
+                    'position': row[6] if len(row) > 6 else "",
+                    'join_date': row[7] if len(row) > 7 else datetime.now().strftime('%Y-%m-%d')
+                }
+                employees.append(employee)
+            
+            return employees
+        except Exception as e:
+            st.error(f"Error fetching employees: {str(e)}")
+            return []
+        finally:
+            conn.close()
+    
+    def get_employee(self, employee_id):
+        conn = get_db_connection()
+        c = conn.cursor()
+        try:
+            c.execute('SELECT * FROM employees WHERE id = ?', (employee_id,))
+            row = c.fetchone()
+            
+            if row:
+                return {
+                    'id': row[0], 
+                    'name': row[1], 
+                    'initial_balance': row[2] if len(row) > 2 else 0,
+                    'phone': row[3] if len(row) > 3 else "",
+                    'email': row[4] if len(row) > 4 else "",
+                    'department': row[5] if len(row) > 5 else "",
+                    'position': row[6] if len(row) > 6 else "",
+                    'join_date': row[7] if len(row) > 7 else datetime.now().strftime('%Y-%m-%d')
+                }
+            return None
+        except Exception as e:
+            st.error(f"Error fetching employee: {str(e)}")
+            return None
+        finally:
+            conn.close()
+    
+    def update_employee(self, employee_id, name, initial_balance, phone, email, department, position, join_date):
+        conn = get_db_connection()
+        c = conn.cursor()
+        try:
+            c.execute('''
+                UPDATE employees 
+                SET name = ?, initial_balance = ?, phone = ?, email = ?, department = ?, position = ?, join_date = ?
+                WHERE id = ?
+            ''', (name, initial_balance, phone, email, department, position, join_date, employee_id))
+            conn.commit()
+            return True
+        except Exception as e:
+            st.error(f"Error updating employee: {str(e)}")
+            return False
+        finally:
+            conn.close()
+    
+    def delete_employee(self, employee_id):
+        conn = get_db_connection()
+        c = conn.cursor()
+        try:
+            # First delete related transactions
+            c.execute('DELETE FROM transactions WHERE employee_id = ?', (employee_id,))
+            # Then delete employee
+            c.execute('DELETE FROM employees WHERE id = ?', (employee_id,))
+            conn.commit()
+            return True
+        except Exception as e:
+            st.error(f"Error deleting employee: {str(e)}")
+            return False
+        finally:
+            conn.close()
+    
+    def add_transaction(self, employee_id, transaction_type, amount, description, category="", date=None):
+        conn = get_db_connection()
+        c = conn.cursor()
+        try:
+            transaction_id = str(uuid.uuid4())
+            if date is None:
+                date = datetime.now().strftime('%Y-%m-%d')
+                
+            c.execute('''
+                INSERT INTO transactions (id, employee_id, type, amount, description, category, date)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (transaction_id, employee_id, transaction_type, amount, description, category, date))
+            conn.commit()
+            return transaction_id
+        except Exception as e:
+            st.error(f"Error adding transaction: {str(e)}")
+            return None
+        finally:
+            conn.close()
+    
+    def get_employee_transactions(self, employee_id, start_date=None, end_date=None):
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        try:
+            query = 'SELECT * FROM transactions WHERE employee_id = ?'
+            params = [employee_id]
+            
+            if start_date and end_date:
+                query += ' AND date BETWEEN ? AND ?'
+                params.extend([start_date, end_date])
+            
+            query += ' ORDER BY date DESC'
+            
+            c.execute(query, params)
+            rows = c.fetchall()
+            transactions = []
+            
+            for row in rows:
+                transaction = {
+                    'id': row[0],
+                    'employee_id': row[1],
+                    'type': row[2],
+                    'amount': row[3],
+                    'description': row[4],
+                    'category': row[5] if len(row) > 5 else "",
+                    'date': row[6] if len(row) > 6 else row[5]
+                }
+                transactions.append(transaction)
+            
+            return transactions
+        except Exception as e:
+            st.error(f"Error fetching transactions: {str(e)}")
+            return []
+        finally:
+            conn.close()
+    
+    def get_transaction(self, transaction_id):
+        conn = get_db_connection()
+        c = conn.cursor()
+        try:
+            c.execute('SELECT * FROM transactions WHERE id = ?', (transaction_id,))
+            row = c.fetchone()
+            
+            if row:
+                return {
+                    'id': row[0],
+                    'employee_id': row[1],
+                    'type': row[2],
+                    'amount': row[3],
+                    'description': row[4],
+                    'category': row[5] if len(row) > 5 else "",
+                    'date': row[6] if len(row) > 6 else row[5]
+                }
+            return None
+        except Exception as e:
+            st.error(f"Error fetching transaction: {str(e)}")
+            return None
+        finally:
+            conn.close()
+    
+    def update_transaction(self, transaction_id, employee_id, transaction_type, amount, description, category, date):
+        conn = get_db_connection()
+        c = conn.cursor()
+        try:
+            c.execute('''
+                UPDATE transactions 
+                SET employee_id = ?, type = ?, amount = ?, description = ?, category = ?, date = ?
+                WHERE id = ?
+            ''', (employee_id, transaction_type, amount, description, category, date, transaction_id))
+            conn.commit()
+            return True
+        except Exception as e:
+            st.error(f"Error updating transaction: {str(e)}")
+            return False
+        finally:
+            conn.close()
+    
+    def delete_transaction(self, transaction_id):
+        conn = get_db_connection()
+        c = conn.cursor()
+        try:
+            c.execute('DELETE FROM transactions WHERE id = ?', (transaction_id,))
+            conn.commit()
+            return True
+        except Exception as e:
+            st.error(f"Error deleting transaction: {str(e)}")
+            return False
+        finally:
+            conn.close()
+    
+    def get_employee_balance(self, employee_id):
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        try:
+            # Get initial balance
+            c.execute('SELECT initial_balance FROM employees WHERE id = ?', (employee_id,))
+            result = c.fetchone()
+            initial_balance = result[0] if result else 0
+            
+            # Calculate total expenses and payments
+            c.execute('SELECT type, SUM(amount) FROM transactions WHERE employee_id = ? GROUP BY type', (employee_id,))
+            transactions = c.fetchall()
+            
+            total_expenses = 0
+            total_payments = 0
+            
+            for trans_type, amount in transactions:
+                if trans_type == 'expense':
+                    total_expenses += amount if amount else 0
+                elif trans_type == 'payment':
+                    total_payments += amount if amount else 0
+            
+            # Balance = Initial Balance + Expenses - Payments
+            return initial_balance + total_expenses - total_payments
+        except Exception as e:
+            st.error(f"Error calculating balance: {str(e)}")
+            return 0
+        finally:
+            conn.close()
+    
+    def get_employee_summary(self, employee_id, start_date=None, end_date=None):
+        try:
+            transactions = self.get_employee_transactions(employee_id, start_date, end_date)
+            
+            total_expenses = sum(t['amount'] for t in transactions if t['type'] == 'expense')
+            total_payments = sum(t['amount'] for t in transactions if t['type'] == 'payment')
+            
+            # Get initial balance for the employee
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute('SELECT initial_balance FROM employees WHERE id = ?', (employee_id,))
+            result = c.fetchone()
+            initial_balance = result[0] if result else 0
+            conn.close()
+            
+            balance = initial_balance + total_expenses - total_payments
+            
+            return {
+                'total_expenses': total_expenses,
+                'total_payments': total_payments,
+                'balance': balance,
+                'transaction_count': len(transactions)
+            }
+        except Exception as e:
+            st.error(f"Error getting employee summary: {str(e)}")
+            return {
+                'total_expenses': 0,
+                'total_payments': 0,
+                'balance': 0,
+                'transaction_count': 0
+            }
+    
+    def get_transactions(self, search_query=""):
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        try:
+            if search_query:
+                c.execute('''
+                    SELECT t.*, e.name as employee_name 
+                    FROM transactions t 
+                    LEFT JOIN employees e ON t.employee_id = e.id 
+                    WHERE t.description LIKE ? OR e.name LIKE ? OR t.category LIKE ?
+                    ORDER BY t.date DESC
+                ''', (f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'))
+            else:
+                c.execute('''
+                    SELECT t.*, e.name as employee_name 
+                    FROM transactions t 
+                    LEFT JOIN employees e ON t.employee_id = e.id 
+                    ORDER BY t.date DESC
+                ''')
+                
+            rows = c.fetchall()
+            transactions = []
+            
+            for row in rows:
+                if len(row) >= 8:
+                    transaction = {
+                        'id': row[0],
+                        'employee_id': row[1],
+                        'type': row[2],
+                        'amount': row[3],
+                        'description': row[4],
+                        'category': row[5],
+                        'date': row[6],
+                        'employee_name': row[7]
+                    }
+                else:
+                    transaction = {
+                        'id': row[0],
+                        'employee_id': row[1],
+                        'type': row[2],
+                        'amount': row[3],
+                        'description': row[4],
+                        'category': "",
+                        'date': row[5] if len(row) > 5 else row[4],
+                        'employee_name': "Unknown"
+                    }
+                transactions.append(transaction)
+            
+            return transactions
+        except Exception as e:
+            st.error(f"Error fetching transactions: {str(e)}")
+            return []
+        finally:
+            conn.close()
+
+class ExpenseTracker:
+    def __init__(self):
+        init_database()
+    
+    def add_expense(self, expense_type, description, amount, category="", employee_name=None, date=None, status="Pending"):
+        conn = get_db_connection()
+        c = conn.cursor()
+        try:
+            expense_id = str(uuid.uuid4())
+            
+            if date is None:
+                date = datetime.now().strftime('%Y-%m-%d')
+            
+            c.execute('''
+                INSERT INTO expenses (id, type, description, amount, category, employee_name, date, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (expense_id, expense_type, description, amount, category, employee_name, date, status))
+            
+            conn.commit()
+            return expense_id
+        except Exception as e:
+            st.error(f"Error adding expense: {str(e)}")
+            return None
+        finally:
+            conn.close()
+    
+    def get_expenses(self, expense_type=None, start_date=None, end_date=None, search_query=""):
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        try:
+            query = 'SELECT * FROM expenses'
+            params = []
+            
+            conditions = []
+            if expense_type:
+                conditions.append('type = ?')
+                params.append(expense_type)
+            
+            if start_date and end_date:
+                conditions.append('date BETWEEN ? AND ?')
+                params.extend([start_date, end_date])
+            
+            if search_query:
+                conditions.append('(description LIKE ? OR category LIKE ? OR employee_name LIKE ?)')
+                params.extend([f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'])
+            
+            if conditions:
+                query += ' WHERE ' + ' AND '.join(conditions)
+            
+            query += ' ORDER BY date DESC'
+            
+            c.execute(query, params)
+            rows = c.fetchall()
+            expenses = []
+            
+            for row in rows:
+                if len(row) >= 8:
+                    expense = {
+                        'id': row[0],
+                        'type': row[1],
+                        'description': row[2],
+                        'amount': row[3],
+                        'category': row[4],
+                        'employee_name': row[5],
+                        'date': row[6],
+                        'status': row[7]
+                    }
+                else:
+                    expense = {
+                        'id': row[0],
+                        'type': row[1],
+                        'description': row[2],
+                        'amount': row[3],
+                        'category': "",
+                        'employee_name': row[4] if len(row) > 4 else "",
+                        'date': row[5] if len(row) > 5 else row[4],
+                        'status': 'Pending'
+                    }
+                expenses.append(expense)
+            
+            return expenses
+        except Exception as e:
+            st.error(f"Error fetching expenses: {str(e)}")
+            return []
+        finally:
+            conn.close()
+    
+    def get_expense(self, expense_id):
+        conn = get_db_connection()
+        c = conn.cursor()
+        try:
+            c.execute('SELECT * FROM expenses WHERE id = ?', (expense_id,))
+            row = c.fetchone()
+            
+            if row:
+                if len(row) >= 8:
+                    return {
+                        'id': row[0],
+                        'type': row[1],
+                        'description': row[2],
+                        'amount': row[3],
+                        'category': row[4],
+                        'employee_name': row[5],
+                        'date': row[6],
+                        'status': row[7]
+                    }
+                else:
+                    return {
+                        'id': row[0],
+                        'type': row[1],
+                        'description': row[2],
+                        'amount': row[3],
+                        'category': "",
+                        'employee_name': row[4] if len(row) > 4 else "",
+                        'date': row[5] if len(row) > 5 else row[4],
+                        'status': 'Pending'
+                    }
+            return None
+        except Exception as e:
+            st.error(f"Error fetching expense: {str(e)}")
+            return None
+        finally:
+            conn.close()
+    
+    def update_expense(self, expense_id, expense_type, description, amount, category, employee_name, date, status):
+        conn = get_db_connection()
+        c = conn.cursor()
+        try:
+            c.execute('''
+                UPDATE expenses 
+                SET type = ?, description = ?, amount = ?, category = ?, employee_name = ?, date = ?, status = ?
+                WHERE id = ?
+            ''', (expense_type, description, amount, category, employee_name, date, status, expense_id))
+            conn.commit()
+            return True
+        except Exception as e:
+            st.error(f"Error updating expense: {str(e)}")
+            return False
+        finally:
+            conn.close()
+    
+    def delete_expense(self, expense_id):
+        conn = get_db_connection()
+        c = conn.cursor()
+        try:
+            c.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
+            conn.commit()
+            return True
+        except Exception as e:
+            st.error(f"Error deleting expense: {str(e)}")
+            return False
+        finally:
+            conn.close()
+    
+    def get_summary(self, start_date=None, end_date=None):
+        try:
+            expenses = self.get_expenses(start_date=start_date, end_date=end_date)
+            
+            company_total = sum(e['amount'] for e in expenses if e['type'] == 'company')
+            employee_total = sum(e['amount'] for e in expenses if e['type'] == 'employee')
+            grand_total = company_total + employee_total
+            
+            return {
+                'company_total': company_total,
+                'employee_total': employee_total,
+                'grand_total': grand_total,
+                'expense_count': len(expenses)
+            }
+        except Exception as e:
+            st.error(f"Error getting expense summary: {str(e)}")
+            return {
+                'company_total': 0,
+                'employee_total': 0,
+                'grand_total': 0,
+                'expense_count': 0
+            }
+
+class PDFGenerator:
+    def __init__(self):
+        self.settings_manager = SettingsManager()
+        self.settings = self.settings_manager.get_settings()
+
+    def generate_employee_ledger_pdf(self, employee_name, transactions, summary, start_date=None, end_date=None):
+        if not FPDF_AVAILABLE:
+            st.error("PDF generation is not available. Please install fpdf.")
+            return None
+            
+        try:
+            pdf = FPDF()
+            pdf.add_page()
+
+            # Header with company name from settings
+            pdf.set_font('Arial', 'B', 20)
+            pdf.cell(0, 10, self.settings['company_name'], 0, 1, 'C')
+            pdf.set_font('Arial', 'B', 16)
+            pdf.cell(0, 10, 'Employee Ledger Report', 0, 1, 'C')
+            pdf.ln(5)
+
+            # Report period
+            pdf.set_font('Arial', 'I', 12)
+            period_text = f"Period: {start_date} to {end_date}" if start_date and end_date else "All Time Period"
+            pdf.cell(0, 10, period_text, 0, 1, 'C')
+            pdf.ln(10)
+
+            # Employee information
+            pdf.set_font('Arial', 'B', 14)
+            pdf.cell(0, 10, f'Employee: {employee_name}', 0, 1)
+            pdf.set_font('Arial', '', 12)
+            pdf.cell(0, 10, f'Report Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
+            pdf.ln(5)
+
+            # Summary
+            pdf.set_font('Arial', 'B', 12)
+            pdf.cell(0, 10, 'Summary:', 0, 1)
+            pdf.set_font('Arial', '', 12)
+            pdf.cell(0, 8, f'Total Expenses: {self.settings["currency"]} {summary["total_expenses"]:.2f}', 0, 1)
+            pdf.cell(0, 8, f'Total Payments: {self.settings["currency"]} {summary["total_payments"]:.2f}', 0, 1)
+
+            # Balance with color
+            balance_status = '(Due)' if summary['balance'] > 0 else '(Advance)' if summary['balance'] < 0 else ''
+            if summary['balance'] > 0:
+                pdf.set_text_color(255, 0, 0)  # Red for due
+            else:
+                pdf.set_text_color(0, 128, 0)  # Green for advance
+                
+            pdf.cell(0, 8, f'Balance: {self.settings["currency"]} {abs(summary["balance"]):.2f} {balance_status}', 0, 1)
+            pdf.set_text_color(0, 0, 0)  # Reset to black
+            pdf.ln(10)
+
+            # Transactions table
+            if transactions:
+                pdf.set_font('Arial', 'B', 12)
+                pdf.cell(0, 10, 'Transaction History:', 0, 1)
+
+                # Table header
+                pdf.set_fill_color(79, 129, 189)
+                pdf.set_text_color(255, 255, 255)
+                pdf.cell(40, 10, 'Date', 1, 0, 'C', True)
+                pdf.cell(30, 10, 'Type', 1, 0, 'C', True)
+                pdf.cell(70, 10, 'Description', 1, 0, 'C', True)
+                pdf.cell(30, 10, 'Amount', 1, 1, 'C', True)
+
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_font('Arial', '', 10)
+                for t in transactions:
+                    # Alternate row colors
+                    if transactions.index(t) % 2 == 0:
+                        pdf.set_fill_color(240, 240, 240)
+                    else:
+                        pdf.set_fill_color(255, 255, 255)
+
+                    pdf.cell(40, 8, t['date'], 1, 0, 'C', True)
+                    pdf.cell(30, 8, t['type'].title(), 1, 0, 'C', True)
+                    pdf.cell(70, 8, t['description'][:40], 1, 0, 'C', True)
+
+                    # Color code amounts
+                    if t['type'] == 'expense':
+                        pdf.set_text_color(255, 0, 0)
+                    else:
+                        pdf.set_text_color(0, 128, 0)
+                    pdf.cell(30, 8, f"{self.settings['currency']} {t['amount']:.2f}", 1, 1, 'C', True)
+                    pdf.set_text_color(0, 0, 0)
+            else:
+                pdf.cell(0, 10, 'No transactions found for the selected period.', 0, 1)
+
+            # Footer with company info
+            pdf.ln(15)
+            pdf.set_font('Arial', 'I', 8)
+            pdf.cell(0, 10, f'Generated by {self.settings["company_name"]} Business Management System', 0, 1, 'C')
+            pdf.cell(0, 5, f'Contact: {self.settings["company_phone"]} | Email: {self.settings["company_email"]}', 0, 1, 'C')
+
+            return pdf
+        except Exception as e:
+            st.error(f"Error generating PDF: {str(e)}")
+            return None
+
+    def generate_expense_report_pdf(self, expenses, report_type="All", employee_name=None, start_date=None, end_date=None):
+        if not FPDF_AVAILABLE:
+            st.error("PDF generation is not available. Please install fpdf.")
+            return None
+            
+        try:
+            pdf = FPDF()
+            pdf.add_page()
+
+            # Header
+            pdf.set_font('Arial', 'B', 20)
+            pdf.cell(0, 10, self.settings['company_name'], 0, 1, 'C')
+            pdf.set_font('Arial', 'B', 16)
+
+            if report_type == "employee" and employee_name:
+                pdf.cell(0, 10, f'Expense Report - {employee_name}', 0, 1, 'C')
+            else:
+                pdf.cell(0, 10, f'{report_type.title()} Expense Report', 0, 1, 'C')
+
+            # Report period
+            pdf.set_font('Arial', 'I', 12)
+            period_text = f"Period: {start_date} to {end_date}" if start_date and end_date else "All Time Period"
+            pdf.cell(0, 10, period_text, 0, 1, 'C')
+            pdf.ln(5)
+
+            # Report details
+            pdf.set_font('Arial', '', 12)
+            pdf.cell(0, 8, f'Report Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
+            pdf.ln(5)
+
+            # Summary
+            total_amount = sum(e['amount'] for e in expenses)
+            pdf.set_font('Arial', 'B', 14)
+            pdf.cell(0, 10, f'Total Amount: {self.settings["currency"]} {total_amount:.2f}', 0, 1)
+            pdf.ln(5)
+
+            # Expenses table
+            if expenses:
+                pdf.set_font('Arial', 'B', 12)
+
+                # Table header
+                pdf.set_fill_color(79, 129, 189)
+                pdf.set_text_color(255, 255, 255)
+                pdf.cell(25, 10, 'Date', 1, 0, 'C', True)
+                pdf.cell(25, 10, 'Type', 1, 0, 'C', True)
+                pdf.cell(60, 10, 'Description', 1, 0, 'C', True)
+                pdf.cell(30, 10, 'Employee', 1, 0, 'C', True)
+                pdf.cell(30, 10, 'Amount', 1, 1, 'C', True)
+
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_font('Arial', '', 10)
+                for idx, e in enumerate(expenses):
+                    # Alternate row colors
+                    if idx % 2 == 0:
+                        pdf.set_fill_color(240, 240, 240)
+                    else:
+                        pdf.set_fill_color(255, 255, 255)
+
+                    pdf.cell(25, 8, e['date'], 1, 0, 'C', True)
+                    pdf.cell(25, 8, e['type'].title(), 1, 0, 'C', True)
+                    pdf.cell(60, 8, e['description'][:35], 1, 0, 'C', True)
+                    pdf.cell(30, 8, e['employee_name'] or 'N/A', 1, 0, 'C', True)
+                    pdf.cell(30, 8, f"{self.settings['currency']} {e['amount']:.2f}", 1, 1, 'C', True)
+            else:
+                pdf.cell(0, 10, 'No expenses found for the selected period.', 0, 1)
+
+            # Footer with company info
+            pdf.ln(15)
+            pdf.set_font('Arial', 'I', 8)
+            pdf.cell(0, 10, f'Generated by {self.settings["company_name"]} Business Management System', 0, 1, 'C')
+            pdf.cell(0, 5, f'Contact: {self.settings["company_phone"]} | Email: {self.settings["company_email"]}', 0, 1, 'C')
+
+            return pdf
+        except Exception as e:
+            st.error(f"Error generating PDF: {str(e)}")
+            return None
+
+    def generate_employee_list_pdf(self, employees, ledger):
+        if not FPDF_AVAILABLE:
+            st.error("PDF generation is not available. Please install fpdf.")
+            return None
+            
+        try:
+            pdf = FPDF()
+            pdf.add_page()
+
+            # Header
+            pdf.set_font('Arial', 'B', 20)
+            pdf.cell(0, 10, self.settings['company_name'], 0, 1, 'C')
+            pdf.set_font('Arial', 'B', 16)
+            pdf.cell(0, 10, 'Employee List Report', 0, 1, 'C')
+            pdf.ln(5)
+
+            # Report details
+            pdf.set_font('Arial', '', 12)
+            pdf.cell(0, 8, f'Report Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
+            pdf.cell(0, 8, f'Total Employees: {len(employees)}', 0, 1)
+            pdf.ln(5)
+
+            # Employee table
+            if employees:
+                pdf.set_font('Arial', 'B', 12)
+
+                # Table header
+                pdf.set_fill_color(79, 129, 189)
+                pdf.set_text_color(255, 255, 255)
+                pdf.cell(60, 10, 'Employee Name', 1, 0, 'C', True)
+                pdf.cell(40, 10, 'Initial Balance', 1, 0, 'C', True)
+                pdf.cell(40, 10, 'Current Balance', 1, 1, 'C', True)
+
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_font('Arial', '', 10)
+                for emp in employees:
+                    # Alternate row colors
+                    if employees.index(emp) % 2 == 0:
+                        pdf.set_fill_color(240, 240, 240)
+                    else:
+                        pdf.set_fill_color(255, 255, 255)
+
+                    balance = ledger.get_employee_balance(emp['id'])
+                    
+                    pdf.cell(60, 8, emp['name'], 1, 0, 'C', True)
+                    pdf.cell(40, 8, f"{self.settings['currency']} {emp['initial_balance']:.2f}", 1, 0, 'C', True)
+                    
+                    # Color code current balance
+                    if balance > 0:
+                        pdf.set_text_color(255, 0, 0)
+                    elif balance < 0:
+                        pdf.set_text_color(0, 128, 0)
+                    else:
+                        pdf.set_text_color(0, 0, 0)
+                    
+                    balance_text = f"{self.settings['currency']} {abs(balance):.2f}"
+                    if balance > 0:
+                        balance_text += " (Due)"
+                    elif balance < 0:
+                        balance_text += " (Advance)"
+                    
+                    pdf.cell(40, 8, balance_text, 1, 1, 'C', True)
+                    pdf.set_text_color(0, 0, 0)
+            else:
+                pdf.cell(0, 10, 'No employees found.', 0, 1)
+
+            # Footer with company info
+            pdf.ln(15)
+            pdf.set_font('Arial', 'I', 8)
+            pdf.cell(0, 10, f'Generated by {self.settings["company_name"]} Business Management System', 0, 1, 'C')
+            pdf.cell(0, 5, f'Contact: {self.settings["company_phone"]} | Email: {self.settings["company_email"]}', 0, 1, 'C')
+
+            return pdf
+        except Exception as e:
+            st.error(f"Error generating PDF: {str(e)}")
+            return None
+
+    def generate_comprehensive_report_pdf(self, ledger, expense_tracker, start_date=None, end_date=None):
+        if not FPDF_AVAILABLE:
+            st.error("PDF generation is not available. Please install fpdf.")
+            return None
+            
+        try:
+            pdf = FPDF()
+            pdf.add_page()
+
+            # Header
+            pdf.set_font('Arial', 'B', 20)
+            pdf.cell(0, 10, self.settings['company_name'], 0, 1, 'C')
+            pdf.set_font('Arial', 'B', 16)
+            pdf.cell(0, 10, 'Comprehensive Business Report', 0, 1, 'C')
+            pdf.ln(5)
+
+            # Report period
+            pdf.set_font('Arial', 'I', 12)
+            period_text = f"Period: {start_date} to {end_date}" if start_date and end_date else "All Time Period"
+            pdf.cell(0, 10, period_text, 0, 1, 'C')
+            pdf.ln(5)
+
+            # Report details
+            pdf.set_font('Arial', '', 12)
+            pdf.cell(0, 8, f'Report Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
+            pdf.ln(10)
+
+            # Get data
+            employees = ledger.get_employees()
+            expenses = expense_tracker.get_expenses(start_date=start_date, end_date=end_date)
+            expense_summary = expense_tracker.get_summary(start_date, end_date)
+
+            # Summary section
+            pdf.set_font('Arial', 'B', 14)
+            pdf.cell(0, 10, 'Business Summary', 0, 1)
+            pdf.set_font('Arial', '', 12)
+            pdf.cell(0, 8, f'Total Employees: {len(employees)}', 0, 1)
+            pdf.cell(0, 8, f'Total Expenses Recorded: {len(expenses)}', 0, 1)
+            pdf.cell(0, 8, f'Company Expenses: {self.settings["currency"]} {expense_summary["company_total"]:.2f}', 0, 1)
+            pdf.cell(0, 8, f'Employee Expenses: {self.settings["currency"]} {expense_summary["employee_total"]:.2f}', 0, 1)
+            pdf.cell(0, 8, f'Grand Total Expenses: {self.settings["currency"]} {expense_summary["grand_total"]:.2f}', 0, 1)
+            pdf.ln(10)
+
+            # Employee summary
+            if employees:
+                pdf.set_font('Arial', 'B', 14)
+                pdf.cell(0, 10, 'Employee Summary', 0, 1)
+                pdf.set_font('Arial', 'B', 10)
+                
+                # Table header
+                pdf.set_fill_color(79, 129, 189)
+                pdf.set_text_color(255, 255, 255)
+                pdf.cell(60, 8, 'Employee', 1, 0, 'C', True)
+                pdf.cell(30, 8, 'Expenses', 1, 0, 'C', True)
+                pdf.cell(30, 8, 'Payments', 1, 0, 'C', True)
+                pdf.cell(40, 8, 'Balance', 1, 1, 'C', True)
+
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_font('Arial', '', 9)
+                for emp in employees:
+                    # Alternate row colors
+                    if employees.index(emp) % 2 == 0:
+                        pdf.set_fill_color(240, 240, 240)
+                    else:
+                        pdf.set_fill_color(255, 255, 255)
+
+                    summary = ledger.get_employee_summary(emp['id'], start_date, end_date)
+                    
+                    pdf.cell(60, 6, emp['name'], 1, 0, 'C', True)
+                    pdf.cell(30, 6, f"{self.settings['currency']} {summary['total_expenses']:.2f}", 1, 0, 'C', True)
+                    pdf.cell(30, 6, f"{self.settings['currency']} {summary['total_payments']:.2f}", 1, 0, 'C', True)
+                    
+                    # Color code balance
+                    if summary['balance'] > 0:
+                        pdf.set_text_color(255, 0, 0)
+                    elif summary['balance'] < 0:
+                        pdf.set_text_color(0, 128, 0)
+                    
+                    balance_text = f"{self.settings['currency']} {abs(summary['balance']):.2f}"
+                    if summary['balance'] > 0:
+                        balance_text += " (Due)"
+                    elif summary['balance'] < 0:
+                        balance_text += " (Advance)"
+                    
+                    pdf.cell(40, 6, balance_text, 1, 1, 'C', True)
+                    pdf.set_text_color(0, 0, 0)
+                pdf.ln(10)
+
+            # Expense summary
+            if expenses:
+                pdf.set_font('Arial', 'B', 14)
+                pdf.cell(0, 10, 'Recent Expenses', 0, 1)
+                pdf.set_font('Arial', 'B', 10)
+                
+                # Table header
+                pdf.set_fill_color(79, 129, 189)
+                pdf.set_text_color(255, 255, 255)
+                pdf.cell(25, 8, 'Date', 1, 0, 'C', True)
+                pdf.cell(25, 8, 'Type', 1, 0, 'C', True)
+                pdf.cell(80, 8, 'Description', 1, 0, 'C', True)
+                pdf.cell(30, 8, 'Amount', 1, 1, 'C', True)
+
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_font('Arial', '', 8)
+                for idx, exp in enumerate(expenses[:15]):  # Show last 15 expenses
+                    if idx % 2 == 0:
+                        pdf.set_fill_color(240, 240, 240)
+                    else:
+                        pdf.set_fill_color(255, 255, 255)
+
+                    pdf.cell(25, 6, exp['date'], 1, 0, 'C', True)
+                    pdf.cell(25, 6, exp['type'].title(), 1, 0, 'C', True)
+                    pdf.cell(80, 6, exp['description'][:50], 1, 0, 'C', True)
+                    pdf.cell(30, 6, f"{self.settings['currency']} {exp['amount']:.2f}", 1, 1, 'C', True)
+
+            # Footer with company info
+            pdf.ln(15)
+            pdf.set_font('Arial', 'I', 8)
+            pdf.cell(0, 10, f'Generated by {self.settings["company_name"]} Business Management System', 0, 1, 'C')
+            pdf.cell(0, 5, f'Contact: {self.settings["company_phone"]} | Email: {self.settings["company_email"]}', 0, 1, 'C')
+
+            return pdf
+        except Exception as e:
+            st.error(f"Error generating PDF: {str(e)}")
+            return None
+
+def render_dashboard(ledger, expense_tracker, pdf_generator):
+    st.markdown('<div class="sub-header">📊 Business Dashboard</div>', unsafe_allow_html=True)
+
+    # Quick stats
+    employees = ledger.get_employees()
+    transactions = ledger.get_transactions()
+    expenses = expense_tracker.get_expenses()
+    expense_summary = expense_tracker.get_summary()
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.markdown(f'<div class="metric-card">👥 Total Employees<br>{len(employees)}</div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown(f'<div class="metric-card">💸 Total Transactions<br>{len(transactions)}</div>', unsafe_allow_html=True)
+    with col3:
+        st.markdown(f'<div class="metric-card">🏢 Company Expenses<br>PKR {expense_summary["company_total"]:.2f}</div>',
+                    unsafe_allow_html=True)
+    with col4:
+        st.markdown(f'<div class="metric-card">👤 Employee Expenses<br>PKR {expense_summary["employee_total"]:.2f}</div>',
+                    unsafe_allow_html=True)
+
+    # Quick PDF Downloads
+    st.markdown("### 📥 Quick PDF Downloads")
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("📊 Comprehensive Report", use_container_width=True, key="comp_report"):
+            pdf = pdf_generator.generate_comprehensive_report_pdf(ledger, expense_tracker)
+            if pdf:
+                pdf_output = pdf.output(dest='S').encode('latin1')
+                st.download_button(
+                    label="Download PDF",
+                    data=pdf_output,
+                    file_name=f"comprehensive_report_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+    
+    with col2:
+        if st.button("👥 Employee List", use_container_width=True, key="emp_list"):
+            employees = ledger.get_employees()
+            pdf = pdf_generator.generate_employee_list_pdf(employees, ledger)
+            if pdf:
+                pdf_output = pdf.output(dest='S').encode('latin1')
+                st.download_button(
+                    label="Download PDF",
+                    data=pdf_output,
+                    file_name=f"employee_list_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+    
+    with col3:
+        if st.button("💰 All Expenses", use_container_width=True, key="all_exp"):
+            expenses = expense_tracker.get_expenses()
+            pdf = pdf_generator.generate_expense_report_pdf(expenses, "All")
+            if pdf:
+                pdf_output = pdf.output(dest='S').encode('latin1')
+                st.download_button(
+                    label="Download PDF",
+                    data=pdf_output,
+                    file_name=f"all_expenses_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+    
+    with col4:
+        if st.button("📈 Expense Summary", use_container_width=True, key="exp_summary"):
+            expenses = expense_tracker.get_expenses()
+            pdf = pdf_generator.generate_expense_report_pdf(expenses, "Summary")
+            if pdf:
+                pdf_output = pdf.output(dest='S').encode('latin1')
+                st.download_button(
+                    label="Download PDF",
+                    data=pdf_output,
+                    file_name=f"expense_summary_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+
+    # Recent activity
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### 👥 Recent Employees")
+        if employees:
+            for emp in employees[:5]:
+                balance = ledger.get_employee_balance(emp['id'])
+                balance_text = f"PKR {abs(balance):.2f} {'(Due)' if balance > 0 else '(Advance)' if balance < 0 else ''}"
+                st.write(f"**{emp['name']}** - {balance_text}")
+        else:
+            st.info("No employees added yet")
+
+    with col2:
+        st.markdown("### 💰 Recent Expenses")
+        if expenses:
+            for exp in expenses[:5]:
+                type_icon = "🏢" if exp['type'] == 'company' else "👤"
+                st.write(f"{type_icon} **{exp['description']}** - PKR {exp['amount']:.2f} ({exp['date']})")
+        else:
+            st.info("No expenses recorded yet")
+
+    # Quick actions - FIXED: Now working properly
+    st.markdown("### ⚡ Quick Actions")
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        if st.button("➕ Add New Employee", use_container_width=True, key="quick_add_emp"):
+            st.session_state.current_page = "👥 Employee Ledger"
+            st.session_state.active_tab = "➕ Add Employee"
             st.rerun()
 
-        # Data Management
-        st.subheader("Data Management")
-        col1, col2, col3 = st.columns(3)
+    with col2:
+        if st.button("💸 Record Transaction", use_container_width=True, key="quick_add_trans"):
+            st.session_state.current_page = "👥 Employee Ledger"
+            st.session_state.active_tab = "💸 Record Transaction"
+            st.rerun()
 
+    with col3:
+        if st.button("💰 Add Expense", use_container_width=True, key="quick_add_exp"):
+            st.session_state.current_page = "💰 Expense Management"
+            st.session_state.active_tab = "➕ Add Expense"
+            st.rerun()
+
+    with col4:
+        if st.button("📊 View Reports", use_container_width=True, key="quick_reports"):
+            st.session_state.current_page = "📊 Reports & Analytics"
+            st.rerun()
+
+def render_employee_ledger(ledger, pdf_generator):
+    st.markdown('<div class="sub-header">👥 Employee Ledger System</div>', unsafe_allow_html=True)
+    st.write("Track expenses, payments, and balances for all employees")
+
+    # Initialize session state for active tab
+    if 'active_tab' not in st.session_state:
+        st.session_state.active_tab = "📋 Employee Management"
+
+    # Create tabs
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📋 Employee Management", 
+        "➕ Add Employee", 
+        "💸 Record Transaction", 
+        "📊 Employee Details"
+    ])
+
+    # Set active tab from session state
+    if st.session_state.get('active_tab') == "➕ Add Employee":
+        st.rerun = lambda: st.experimental_set_query_params(tab="add_employee")
+    elif st.session_state.get('active_tab') == "💸 Record Transaction":
+        st.rerun = lambda: st.experimental_set_query_params(tab="record_transaction")
+
+    with tab1:
+        st.markdown("### 👥 Employee Management")
+        
+        # Search functionality
+        col1, col2 = st.columns([3, 1])
         with col1:
-            if st.button("💾 Export Data", use_container_width=True, key="export_data"):
-                data = {
-                    'chemicals': st.session_state.chemicals,
-                    'packaging_materials': st.session_state.packaging_materials,
-                    'vendor_ledger': st.session_state.vendor_ledger,
-                    'vendor_payments': st.session_state.vendor_payments,
-                    'production_history': st.session_state.production_history,
-                    'settings': st.session_state.settings,
-                    'expenses': st.session_state.expenses
-                }
-
-                json_data = json.dumps(data, indent=2)
-                st.download_button(
-                    label="Download Data",
-                    data=json_data,
-                    file_name=f"{st.session_state.settings['company_name'].replace(' ', '_')}_backup_{datetime.now().strftime('%Y%m%d')}.json",
-                    mime="application/json",
-                    use_container_width=True,
-                    key="dl_data"
-                )
-
+            search_query = st.text_input("🔍 Search Employees", placeholder="Search by name, department, or position...")
         with col2:
-            uploaded_file = st.file_uploader("Import Data", type="json", key="import_data")
-            if uploaded_file is not None:
-                try:
-                    data = json.load(uploaded_file)
-                    if st.button("Import Data", type="primary", use_container_width=True, key="import_btn"):
-                        st.session_state.chemicals = data.get('chemicals', [])
-                        st.session_state.packaging_materials = data.get('packaging_materials', {})
-                        st.session_state.vendor_ledger = data.get('vendor_ledger', [])
-                        st.session_state.vendor_payments = data.get('vendor_payments', [])
-                        st.session_state.production_history = data.get('production_history', [])
-                        st.session_state.settings = data.get('settings', st.session_state.settings)
-                        st.session_state.expenses = data.get('expenses', [])
-                        auto_save()
-                        show_alert("Data imported successfully!", "success")
-                        st.rerun()
-                except Exception as e:
-                    show_alert(f"Error importing data: {str(e)}", "error")
+            if st.button("🔄 Refresh", use_container_width=True):
+                st.rerun()
+        
+        employees = ledger.get_employees(search_query)
+        
+        if employees:
+            st.markdown(f"**Found {len(employees)} employee(s)**")
+            
+            for emp in employees:
+                with st.container():
+                    col1, col2, col3, col4 = st.columns([3, 2, 1, 1])
+                    
+                    with col1:
+                        st.write(f"**{emp['name']}**")
+                        if emp.get('department') or emp.get('position'):
+                            dept_info = f"{emp.get('department', '')} • {emp.get('position', '')}".strip(' •')
+                            if dept_info:
+                                st.caption(dept_info)
+                        if emp.get('phone'):
+                            st.caption(f"📞 {emp['phone']}")
+                        if emp.get('email'):
+                            st.caption(f"📧 {emp['email']}")
+                    
+                    with col2:
+                        balance = ledger.get_employee_balance(emp['id'])
+                        balance_text = f"PKR {abs(balance):.2f}"
+                        if balance > 0:
+                            st.error(f"💰 Due: {balance_text}")
+                        elif balance < 0:
+                            st.success(f"💰 Advance: {balance_text}")
+                        else:
+                            st.info("💰 Settled")
+                    
+                    with col3:
+                        if st.button("✏️ Edit", key=f"edit_emp_{emp['id']}", use_container_width=True):
+                            st.session_state.editing_employee = emp['id']
+                    
+                    with col4:
+                        if st.button("🗑️ Delete", key=f"delete_emp_{emp['id']}", use_container_width=True):
+                            st.session_state.deleting_employee = emp['id']
+                    
+                    st.divider()
+                    
+                    # Edit form
+                    if st.session_state.get('editing_employee') == emp['id']:
+                        with st.form(f"edit_employee_form_{emp['id']}"):
+                            st.markdown("#### ✏️ Edit Employee")
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                new_name = st.text_input("Name", value=emp['name'])
+                                new_phone = st.text_input("Phone", value=emp.get('phone', ''))
+                                new_department = st.text_input("Department", value=emp.get('department', ''))
+                            with col2:
+                                new_initial_balance = st.number_input("Initial Balance", value=emp['initial_balance'])
+                                new_email = st.text_input("Email", value=emp.get('email', ''))
+                                new_position = st.text_input("Position", value=emp.get('position', ''))
+                            
+                            join_date_value = emp.get('join_date')
+                            if join_date_value:
+                                try:
+                                    if isinstance(join_date_value, str):
+                                        join_date_value = datetime.strptime(join_date_value, '%Y-%m-%d').date()
+                                    else:
+                                        join_date_value = datetime.now().date()
+                                except:
+                                    join_date_value = datetime.now().date()
+                            else:
+                                join_date_value = datetime.now().date()
+                                
+                            new_join_date = st.date_input("Join Date", value=join_date_value)
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                if st.form_submit_button("💾 Update Employee", use_container_width=True):
+                                    if ledger.update_employee(emp['id'], new_name, new_initial_balance, new_phone, 
+                                                         new_email, new_department, new_position, new_join_date.isoformat()):
+                                        st.success("✅ Employee updated successfully!")
+                                        del st.session_state.editing_employee
+                                        st.rerun()
+                            with col2:
+                                if st.form_submit_button("❌ Cancel", use_container_width=True):
+                                    del st.session_state.editing_employee
+                                    st.rerun()
+                    
+                    # Delete confirmation
+                    if st.session_state.get('deleting_employee') == emp['id']:
+                        st.warning(f"⚠️ Are you sure you want to delete **{emp['name']}**? This action cannot be undone!")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("✅ Yes, Delete", key=f"confirm_del_emp_{emp['id']}", use_container_width=True):
+                                if ledger.delete_employee(emp['id']):
+                                    st.success("✅ Employee deleted successfully!")
+                                    del st.session_state.deleting_employee
+                                    st.rerun()
+                        with col2:
+                            if st.button("❌ Cancel", key=f"cancel_del_emp_{emp['id']}", use_container_width=True):
+                                del st.session_state.deleting_employee
+                                st.rerun()
+        else:
+            st.info("👥 No employees found. Add some employees to get started!")
 
-        with col3:
-            if st.button("🗑️ Clear All Data", type="secondary", use_container_width=True, key="clear_data"):
-                if st.checkbox("I understand this will delete all data permanently", key="confirm_clear"):
-                    if st.button("Confirm Clear All Data", type="primary", use_container_width=True,
-                                 key="confirm_clear_btn"):
-                        st.session_state.chemicals = []
-                        st.session_state.packaging_materials = {}
-                        st.session_state.vendor_ledger = []
-                        st.session_state.vendor_payments = []
-                        st.session_state.production_history = []
-                        st.session_state.expenses = []
-                        auto_save()
-                        show_alert("All data cleared successfully!", "success")
+    with tab2:
+        st.markdown("### ➕ Add New Employee")
+        with st.form("add_employee_form"):
+            st.markdown("#### Employee Information")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                name = st.text_input("Full Name *", placeholder="Enter employee full name")
+                phone = st.text_input("Phone Number", placeholder="+92-XXX-XXXXXXX")
+                department = st.text_input("Department", placeholder="e.g., Sales, IT, HR")
+            with col2:
+                initial_balance = st.number_input("Initial Balance", value=0.0, step=100.0, 
+                                                help="Positive for due amount, negative for advance")
+                email = st.text_input("Email Address", placeholder="employee@company.com")
+                position = st.text_input("Position", placeholder="e.g., Manager, Developer")
+            
+            join_date = st.date_input("Join Date", value=datetime.now())
+            
+            # FIXED: Added proper submit button
+            submitted = st.form_submit_button("➕ Add Employee", use_container_width=True)
+            if submitted:
+                if name:
+                    employee_id = ledger.add_employee(name, initial_balance, phone, email, department, position, join_date.isoformat())
+                    if employee_id:
+                        st.success(f"✅ Employee {name} added successfully!")
                         st.rerun()
+                else:
+                    st.error("❌ Please enter employee name")
+
+    with tab3:
+        st.markdown("### 💸 Transaction Management")
+        
+        # Search transactions
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            trans_search = st.text_input("🔍 Search Transactions", placeholder="Search by description, category, or employee...")
+        with col2:
+            if st.button("🔄 Refresh", key="refresh_trans", use_container_width=True):
+                st.rerun()
+        
+        transactions = ledger.get_transactions(trans_search)
+        
+        if transactions:
+            st.markdown(f"**Found {len(transactions)} transaction(s)**")
+            
+            for trans in transactions:
+                with st.container():
+                    col1, col2, col3, col4, col5 = st.columns([3, 2, 1, 1, 1])
+                    
+                    with col1:
+                        st.write(f"**{trans['description']}**")
+                        st.caption(f"👤 {trans.get('employee_name', 'Unknown')} • {trans['date']}")
+                        if trans.get('category'):
+                            st.caption(f"📁 {trans['category']}")
+                    
+                    with col2:
+                        amount_color = "red" if trans['type'] == 'expense' else "green"
+                        amount_icon = "📤" if trans['type'] == 'expense' else "📥"
+                        st.markdown(f"<span style='color: {amount_color}; font-weight: bold;'>{amount_icon} PKR {trans['amount']:.2f}</span>", 
+                                  unsafe_allow_html=True)
+                        st.caption(f"Type: {trans['type'].title()}")
+                    
+                    with col3, col4, col5:
+                        if st.button("✏️ Edit", key=f"edit_trans_{trans['id']}", use_container_width=True):
+                            st.session_state.editing_transaction = trans['id']
+                        if st.button("🗑️ Delete", key=f"delete_trans_{trans['id']}", use_container_width=True):
+                            st.session_state.deleting_transaction = trans['id']
+                    
+                    st.divider()
+                    
+                    # Edit transaction form
+                    if st.session_state.get('editing_transaction') == trans['id']:
+                        with st.form(f"edit_transaction_form_{trans['id']}"):
+                            st.markdown("#### ✏️ Edit Transaction")
+                            
+                            employees = ledger.get_employees()
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                employee_id = st.selectbox("Employee", 
+                                                         options=[emp['id'] for emp in employees],
+                                                         format_func=lambda x: next(emp['name'] for emp in employees if emp['id'] == x),
+                                                         index=next(i for i, emp in enumerate(employees) if emp['id'] == trans['employee_id']))
+                                transaction_type = st.selectbox("Type", ["expense", "payment"], 
+                                                              index=0 if trans['type'] == 'expense' else 1)
+                                amount = st.number_input("Amount", value=trans['amount'])
+                            with col2:
+                                description = st.text_input("Description", value=trans['description'])
+                                category = st.text_input("Category", value=trans.get('category', ''))
+                                date = st.date_input("Date", value=datetime.strptime(trans['date'], '%Y-%m-%d').date() if isinstance(trans['date'], str) else trans['date'])
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                if st.form_submit_button("💾 Update Transaction", use_container_width=True):
+                                    if ledger.update_transaction(trans['id'], employee_id, transaction_type, amount, description, category, date.isoformat()):
+                                        st.success("✅ Transaction updated successfully!")
+                                        del st.session_state.editing_transaction
+                                        st.rerun()
+                            with col2:
+                                if st.form_submit_button("❌ Cancel", use_container_width=True):
+                                    del st.session_state.editing_transaction
+                                    st.rerun()
+                    
+                    # Delete transaction confirmation
+                    if st.session_state.get('deleting_transaction') == trans['id']:
+                        st.warning(f"⚠️ Are you sure you want to delete this transaction?")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("✅ Yes, Delete", key=f"confirm_del_trans_{trans['id']}", use_container_width=True):
+                                if ledger.delete_transaction(trans['id']):
+                                    st.success("✅ Transaction deleted successfully!")
+                                    del st.session_state.deleting_transaction
+                                    st.rerun()
+                        with col2:
+                            if st.button("❌ Cancel", key=f"cancel_del_trans_{trans['id']}", use_container_width=True):
+                                del st.session_state.deleting_transaction
+                                st.rerun()
+        
+        # Add new transaction form
+        st.markdown("### ➕ Record New Transaction")
+        with st.form("add_transaction_form"):
+            employees = ledger.get_employees()
+            
+            if employees:
+                col1, col2 = st.columns(2)
+                with col1:
+                    employee_id = st.selectbox("Select Employee *", 
+                                             options=[emp['id'] for emp in employees],
+                                             format_func=lambda x: next(emp['name'] for emp in employees if emp['id'] == x))
+                    transaction_type = st.selectbox("Transaction Type *", ["expense", "payment"])
+                    amount = st.number_input("Amount *", min_value=0.0, step=100.0)
+                with col2:
+                    description = st.text_input("Description *", placeholder="Brief description of transaction")
+                    category = st.text_input("Category", placeholder="e.g., Travel, Office, Food")
+                    date = st.date_input("Date *", value=datetime.now())
+                
+                # FIXED: Added proper submit button
+                submitted = st.form_submit_button("💾 Record Transaction", use_container_width=True)
+                if submitted:
+                    if description and amount > 0:
+                        transaction_id = ledger.add_transaction(employee_id, transaction_type, amount, description, category, date.isoformat())
+                        if transaction_id:
+                            st.success("✅ Transaction recorded successfully!")
+                            st.rerun()
+                    else:
+                        st.error("❌ Please fill all required fields correctly")
+            else:
+                st.info("👥 No employees found. Please add employees first.")
+
+    with tab4:
+        st.markdown("### 📊 Employee Details & Ledger")
+        employees = ledger.get_employees()
+        
+        if employees:
+            selected_employee = st.selectbox("Select Employee", 
+                                           options=[emp['id'] for emp in employees],
+                                           format_func=lambda x: next(emp['name'] for emp in employees if emp['id'] == x),
+                                           key="employee_detail_select")
+            
+            if selected_employee:
+                employee = ledger.get_employee(selected_employee)
+                transactions = ledger.get_employee_transactions(selected_employee)
+                summary = ledger.get_employee_summary(selected_employee)
+                
+                # Employee information card
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("📊 Total Expenses", f"PKR {summary['total_expenses']:.2f}")
+                with col2:
+                    st.metric("💰 Total Payments", f"PKR {summary['total_payments']:.2f}")
+                with col3:
+                    balance_status = "Due" if summary['balance'] > 0 else "Advance" if summary['balance'] < 0 else "Settled"
+                    st.metric("⚖️ Current Balance", f"PKR {abs(summary['balance']):.2f}", balance_status)
+                with col4:
+                    st.metric("📈 Total Transactions", summary['transaction_count'])
+                
+                # Date filter for transactions
+                col1, col2 = st.columns(2)
+                with col1:
+                    start_date = st.date_input("Start Date", value=datetime.now() - timedelta(days=30), key="ledger_start")
+                with col2:
+                    end_date = st.date_input("End Date", value=datetime.now(), key="ledger_end")
+                
+                if st.button("🔍 Filter Transactions", key="filter_ledger"):
+                    filtered_transactions = ledger.get_employee_transactions(
+                        selected_employee, start_date.isoformat(), end_date.isoformat()
+                    )
+                    transactions = filtered_transactions
+                
+                # Download PDF for this employee
+                if st.button("📄 Download Employee Ledger PDF", key="emp_ledger_pdf"):
+                    pdf = pdf_generator.generate_employee_ledger_pdf(
+                        employee['name'], transactions, summary, start_date.isoformat(), end_date.isoformat()
+                    )
+                    if pdf:
+                        pdf_output = pdf.output(dest='S').encode('latin1')
+                        st.download_button(
+                            label="📥 Download PDF",
+                            data=pdf_output,
+                            file_name=f"ledger_{employee['name']}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                            mime="application/pdf"
+                        )
+                
+                # Display transactions
+                if transactions:
+                    st.markdown("#### 📋 Transaction History")
+                    for t in transactions:
+                        with st.container():
+                            col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+                            with col1:
+                                st.write(f"**{t['description']}**")
+                                if t.get('category'):
+                                    st.caption(f"📁 {t['category']}")
+                            with col2:
+                                st.write(t['date'])
+                            with col3:
+                                type_badge = "📤 Expense" if t['type'] == 'expense' else "📥 Payment"
+                                st.write(type_badge)
+                            with col4:
+                                amount_color = "red" if t['type'] == 'expense' else "green"
+                                st.markdown(f"<span style='color: {amount_color}; font-weight: bold;'>PKR {t['amount']:.2f}</span>", 
+                                          unsafe_allow_html=True)
+                            
+                            st.divider()
+                else:
+                    st.info("💸 No transactions found for this employee.")
+        else:
+            st.info("👥 No employees found. Please add employees first.")
+
+def render_expense_dashboard(expense_tracker, ledger, pdf_generator):
+    st.markdown('<div class="sub-header">💰 Expense Management</div>', unsafe_allow_html=True)
+    st.write("Track and manage all company and employee expenses")
+
+    # Initialize session state for active tab
+    if 'expense_active_tab' not in st.session_state:
+        st.session_state.expense_active_tab = "📈 Expense Overview"
+
+    # Create tabs
+    tab1, tab2, tab3 = st.tabs([
+        "📈 Expense Overview", 
+        "➕ Add Expense", 
+        "📋 Expense Management"
+    ])
+
+    with tab1:
+        st.markdown("### 📈 Expense Overview")
+        expense_summary = expense_tracker.get_summary()
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("🏢 Company Expenses", f"PKR {expense_summary['company_total']:.2f}")
+        with col2:
+            st.metric("👤 Employee Expenses", f"PKR {expense_summary['employee_total']:.2f}")
+        with col3:
+            st.metric("💰 Total Expenses", f"PKR {expense_summary['grand_total']:.2f}")
+        
+        # Expense breakdown
+        expenses = expense_tracker.get_expenses()
+        if expenses:
+            df = pd.DataFrame(expenses)
+            if 'date' in df.columns:
+                df['date'] = pd.to_datetime(df['date'])
+                
+                # Monthly trend
+                monthly_expenses = df.groupby([df['date'].dt.to_period('M'), 'type'])['amount'].sum().reset_index()
+                monthly_expenses['date'] = monthly_expenses['date'].astype(str)
+                
+                if PLOTLY_AVAILABLE:
+                    fig = px.bar(monthly_expenses, x='date', y='amount', color='type',
+                               title="📊 Monthly Expenses Trend", barmode='group')
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.bar_chart(monthly_expenses.pivot(index='date', columns='type', values='amount'))
+
+    with tab2:
+        st.markdown("### ➕ Add New Expense")
+        with st.form("add_expense_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                expense_type = st.selectbox("Expense Type *", ["company", "employee"])
+                amount = st.number_input("Amount *", min_value=0.0, step=100.0)
+                category = st.text_input("Category", placeholder="e.g., Travel, Office Supplies")
+            with col2:
+                description = st.text_area("Description *", placeholder="Detailed description of the expense")
+                employee_name = st.selectbox("Employee (if employee expense)", 
+                                           options=[""] + [emp['name'] for emp in ledger.get_employees()],
+                                           disabled=expense_type != "employee")
+                date = st.date_input("Date *", value=datetime.now())
+            
+            status = st.selectbox("Status", ["Pending", "Approved", "Rejected", "Paid"])
+            
+            # FIXED: Added proper submit button
+            submitted = st.form_submit_button("💾 Add Expense", use_container_width=True)
+            if submitted:
+                if description and amount > 0:
+                    emp_name = employee_name if expense_type == "employee" else None
+                    expense_id = expense_tracker.add_expense(expense_type, description, amount, category, emp_name, date.isoformat(), status)
+                    if expense_id:
+                        st.success("✅ Expense added successfully!")
+                        st.rerun()
+                else:
+                    st.error("❌ Please fill all required fields correctly")
+
+    with tab3:
+        st.markdown("### 📋 Expense Management")
+        
+        # Filter options
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            filter_type = st.selectbox("Filter by Type", ["All", "company", "employee"])
+        with col2:
+            start_date = st.date_input("Start Date", value=datetime.now() - timedelta(days=30), key="expense_start")
+        with col3:
+            end_date = st.date_input("End Date", value=datetime.now(), key="expense_end")
+        
+        # Search functionality
+        search_query = st.text_input("🔍 Search Expenses", placeholder="Search by description, category, or employee...")
+        
+        # Get filtered expenses
+        expense_type_filter = None if filter_type == "All" else filter_type
+        expenses = expense_tracker.get_expenses(expense_type_filter, start_date.isoformat(), end_date.isoformat(), search_query)
+        
+        if expenses:
+            st.markdown(f"**Found {len(expenses)} expense(s)**")
+            
+            for exp in expenses:
+                with st.container():
+                    col1, col2, col3, col4, col5, col6 = st.columns([3, 1, 1, 1, 1, 1])
+                    
+                    with col1:
+                        st.write(f"**{exp['description']}**")
+                        if exp.get('employee_name'):
+                            st.caption(f"👤 {exp['employee_name']}")
+                        if exp.get('category'):
+                            st.caption(f"📁 {exp['category']}")
+                    
+                    with col2:
+                        st.write(exp['date'])
+                    
+                    with col3:
+                        type_badge = "🏢" if exp['type'] == 'company' else "👤"
+                        st.write(f"{type_badge} {exp['type'].title()}")
+                    
+                    with col4:
+                        st.write(f"💰 PKR {exp['amount']:.2f}")
+                    
+                    with col5:
+                        status_color = {
+                            'Pending': 'orange',
+                            'Approved': 'green', 
+                            'Rejected': 'red',
+                            'Paid': 'blue'
+                        }.get(exp.get('status', 'Pending'), 'gray')
+                        st.markdown(f"<span style='color: {status_color}; font-weight: bold;'>{exp.get('status', 'Pending')}</span>", 
+                                  unsafe_allow_html=True)
+                    
+                    with col6:
+                        if st.button("✏️ Edit", key=f"edit_exp_{exp['id']}", use_container_width=True):
+                            st.session_state.editing_expense = exp['id']
+                        if st.button("🗑️ Delete", key=f"delete_exp_{exp['id']}", use_container_width=True):
+                            st.session_state.deleting_expense = exp['id']
+                    
+                    st.divider()
+                    
+                    # Edit expense form
+                    if st.session_state.get('editing_expense') == exp['id']:
+                        with st.form(f"edit_expense_form_{exp['id']}"):
+                            st.markdown("#### ✏️ Edit Expense")
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                new_type = st.selectbox("Expense Type", ["company", "employee"], 
+                                                      index=0 if exp['type'] == 'company' else 1,
+                                                      key=f"type_{exp['id']}")
+                                new_amount = st.number_input("Amount", value=exp['amount'], key=f"amount_{exp['id']}")
+                                new_category = st.text_input("Category", value=exp.get('category', ''), key=f"category_{exp['id']}")
+                            with col2:
+                                new_description = st.text_area("Description", value=exp['description'], key=f"desc_{exp['id']}")
+                                new_employee = st.selectbox("Employee", 
+                                                          options=[""] + [emp['name'] for emp in ledger.get_employees()],
+                                                          index=0 if not exp.get('employee_name') else 
+                                                          [""] + [emp['name'] for emp in ledger.get_employees()].index(exp['employee_name']),
+                                                          key=f"emp_{exp['id']}",
+                                                          disabled=new_type != "employee")
+                                new_date = st.date_input("Date", 
+                                                       value=datetime.strptime(exp['date'], '%Y-%m-%d').date() if isinstance(exp['date'], str) else exp['date'], 
+                                                       key=f"date_{exp['id']}")
+                            
+                            new_status = st.selectbox("Status", ["Pending", "Approved", "Rejected", "Paid"],
+                                                    index=["Pending", "Approved", "Rejected", "Paid"].index(exp.get('status', 'Pending')),
+                                                    key=f"status_{exp['id']}")
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                if st.form_submit_button("💾 Update Expense", use_container_width=True):
+                                    emp_name = new_employee if new_type == "employee" else None
+                                    if expense_tracker.update_expense(exp['id'], new_type, new_description, new_amount, 
+                                                                 new_category, emp_name, new_date.isoformat(), new_status):
+                                        st.success("✅ Expense updated successfully!")
+                                        del st.session_state.editing_expense
+                                        st.rerun()
+                            with col2:
+                                if st.form_submit_button("❌ Cancel", use_container_width=True):
+                                    del st.session_state.editing_expense
+                                    st.rerun()
+                    
+                    # Delete expense confirmation
+                    if st.session_state.get('deleting_expense') == exp['id']:
+                        st.warning(f"⚠️ Are you sure you want to delete this expense?")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("✅ Yes, Delete", key=f"confirm_del_exp_{exp['id']}", use_container_width=True):
+                                if expense_tracker.delete_expense(exp['id']):
+                                    st.success("✅ Expense deleted successfully!")
+                                    del st.session_state.deleting_expense
+                                    st.rerun()
+                        with col2:
+                            if st.button("❌ Cancel", key=f"cancel_del_exp_{exp['id']}", use_container_width=True):
+                                del st.session_state.deleting_expense
+                                st.rerun()
+        else:
+            st.info("💰 No expenses found for the selected filters.")
+
+def render_reports_analytics(ledger, expense_tracker, pdf_generator):
+    st.markdown('<div class="sub-header">📊 Reports & Analytics</div>', unsafe_allow_html=True)
+
+    # PDF Download Section
+    st.markdown("### 📥 Comprehensive PDF Reports")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("🏢 Full Business Report", use_container_width=True, key="full_business"):
+            pdf = pdf_generator.generate_comprehensive_report_pdf(ledger, expense_tracker)
+            if pdf:
+                pdf_output = pdf.output(dest='S').encode('latin1')
+                st.download_button(
+                    label="Download Full Report",
+                    data=pdf_output,
+                    file_name=f"full_business_report_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+    
+    with col2:
+        # Date range for custom report
+        col21, col22 = st.columns(2)
+        with col21:
+            custom_start = st.date_input("Start Date", value=datetime.now() - timedelta(days=30), key="custom_start")
+        with col22:
+            custom_end = st.date_input("End Date", value=datetime.now(), key="custom_end")
+        
+        if st.button("📅 Custom Period Report", use_container_width=True, key="custom_report"):
+            pdf = pdf_generator.generate_comprehensive_report_pdf(ledger, expense_tracker, 
+                                                                 custom_start.isoformat(), custom_end.isoformat())
+            if pdf:
+                pdf_output = pdf.output(dest='S').encode('latin1')
+                st.download_button(
+                    label="Download Custom Report",
+                    data=pdf_output,
+                    file_name=f"custom_report_{custom_start}_{custom_end}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
 
     # Data Import/Export Section
-    elif choice == "Data Import/Export":
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.title("📊 Data Import/Export")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.subheader("📤 Export Data")
-
-            # Export to CSV
-            if st.button("📊 Export to CSV", use_container_width=True, key="export_csv"):
-                with st.spinner("Exporting data to CSV..."):
-                    csv_buffer = export_to_csv()
-                    st.download_button(
-                        label="⬇️ Download CSV Files (ZIP)",
-                        data=csv_buffer,
-                        file_name=f"HMD_Data_Export_{datetime.now().strftime('%Y%m%d_%H%M')}.zip",
-                        mime="application/zip",
-                        use_container_width=True,
-                        key="download_csv"
-                    )
-
-            # Download Sample CSV Template
-            st.subheader("📋 Sample Template")
-            if st.button("📝 Download Sample CSV Template", use_container_width=True, key="sample_template"):
-                with st.spinner("Creating sample template..."):
-                    sample_buffer = create_sample_csv()
-                    st.download_button(
-                        label="⬇️ Download Sample Template (ZIP)",
-                        data=sample_buffer,
-                        file_name="HMD_Data_Import_Template.zip",
-                        mime="application/zip",
-                        use_container_width=True,
-                        key="download_sample"
-                    )
-
-        with col2:
-            st.subheader("📥 Import Data")
-
-            uploaded_file = st.file_uploader("Choose ZIP File with CSV files", type=['zip'], key="import_zip")
-
-            if uploaded_file is not None:
-                st.info("📋 File uploaded successfully! Click import to load the data.")
-
-                try:
-                    # Preview available files
-                    with zipfile.ZipFile(uploaded_file) as z:
-                        file_list = z.namelist()
-                        st.write("Files found in ZIP:")
-                        for file in file_list:
-                            st.write(f"- {file}")
-
-                    if st.button("🚀 Import Data", type="primary", use_container_width=True, key="import_data_btn"):
-                        with st.spinner("Importing data..."):
-                            imported_data = import_from_csv(uploaded_file)
-
-                            # Update session state with imported data
-                            if 'chemicals' in imported_data:
-                                st.session_state.chemicals = imported_data['chemicals']
-                            if 'packaging_materials' in imported_data:
-                                st.session_state.packaging_materials = imported_data['packaging_materials']
-                            if 'vendor_ledger' in imported_data:
-                                st.session_state.vendor_ledger = imported_data['vendor_ledger']
-                            if 'vendor_payments' in imported_data:
-                                st.session_state.vendor_payments = imported_data['vendor_payments']
-                            if 'production_history' in imported_data:
-                                st.session_state.production_history = imported_data['production_history']
-                            if 'expenses' in imported_data:
-                                st.session_state.expenses = imported_data['expenses']
-
-                            auto_save()
-                            show_alert("Data imported successfully!", "success")
-                            st.rerun()
-
-                except Exception as e:
-                    show_alert(f"Error reading ZIP file: {str(e)}", "error")
-
-        # Data Management
-        st.markdown('<div class="section-header">', unsafe_allow_html=True)
-        st.subheader("🗃️ Data Management")
-        st.markdown('</div>', unsafe_allow_html=True)
-
+    st.markdown("### 📁 Data Import & Export")
+    
+    tab1, tab2, tab3 = st.tabs(["📤 Export Data", "📥 Import Data", "📊 Analytics"])
+    
+    with tab1:
+        st.markdown("#### 📤 Export Data")
         col1, col2, col3 = st.columns(3)
-
+        
         with col1:
-            # Export to JSON (existing functionality)
-            if st.button("💾 Export to JSON", use_container_width=True, key="export_json"):
-                data = {
-                    'chemicals': st.session_state.chemicals,
-                    'packaging_materials': st.session_state.packaging_materials,
-                    'vendor_ledger': st.session_state.vendor_ledger,
-                    'vendor_payments': st.session_state.vendor_payments,
-                    'production_history': st.session_state.production_history,
-                    'settings': st.session_state.settings,
-                    'expenses': st.session_state.expenses
-                }
-                json_data = json.dumps(data, indent=2)
+            # Export Employees
+            employees = ledger.get_employees()
+            if employees:
+                df_employees = pd.DataFrame(employees)
+                csv_employees = df_employees.to_csv(index=False)
                 st.download_button(
-                    label="Download JSON",
-                    data=json_data,
-                    file_name=f"{st.session_state.settings['company_name'].replace(' ', '_')}_backup_{datetime.now().strftime('%Y%m%d')}.json",
-                    mime="application/json",
-                    use_container_width=True,
-                    key="dl_data"
+                    label="📥 Export Employees CSV",
+                    data=csv_employees,
+                    file_name=f"employees_export_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
                 )
-
+            else:
+                st.info("👥 No employee data to export")
+        
         with col2:
-            # Import from JSON (existing functionality)
-            uploaded_json = st.file_uploader("Import JSON", type="json", key="import_json")
-            if uploaded_json is not None:
-                try:
-                    data = json.load(uploaded_json)
-                    if st.button("Import JSON Data", type="primary", use_container_width=True, key="import_json_btn"):
-                        st.session_state.chemicals = data.get('chemicals', [])
-                        st.session_state.packaging_materials = data.get('packaging_materials', {})
-                        st.session_state.vendor_ledger = data.get('vendor_ledger', [])
-                        st.session_state.vendor_payments = data.get('vendor_payments', [])
-                        st.session_state.production_history = data.get('production_history', [])
-                        st.session_state.settings = data.get('settings', st.session_state.settings)
-                        st.session_state.expenses = data.get('expenses', [])
-                        auto_save()
-                        show_alert("Data imported successfully!", "success")
-                        st.rerun()
-                except Exception as e:
-                    show_alert(f"Error importing data: {str(e)}", "error")
-
+            # Export Transactions
+            transactions = ledger.get_transactions()
+            if transactions:
+                df_transactions = pd.DataFrame(transactions)
+                csv_transactions = df_transactions.to_csv(index=False)
+                st.download_button(
+                    label="📥 Export Transactions CSV",
+                    data=csv_transactions,
+                    file_name=f"transactions_export_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.info("💸 No transaction data to export")
+        
         with col3:
-            # Clear data (existing functionality)
-            if st.button("🗑️ Clear All Data", type="secondary", use_container_width=True, key="clear_data"):
-                if st.checkbox("I understand this will delete all data permanently", key="confirm_clear"):
-                    if st.button("Confirm Clear All Data", type="primary", use_container_width=True,
-                                 key="confirm_clear_btn"):
-                        st.session_state.chemicals = []
-                        st.session_state.packaging_materials = {}
-                        st.session_state.vendor_ledger = []
-                        st.session_state.vendor_payments = []
-                        st.session_state.production_history = []
-                        st.session_state.expenses = []
-                        auto_save()
-                        show_alert("All data cleared successfully!", "success")
-                        st.rerun()
+            # Export Expenses
+            expenses = expense_tracker.get_expenses()
+            if expenses:
+                df_expenses = pd.DataFrame(expenses)
+                csv_expenses = df_expenses.to_csv(index=False)
+                st.download_button(
+                    label="📥 Export Expenses CSV",
+                    data=csv_expenses,
+                    file_name=f"expenses_export_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.info("💰 No expense data to export")
+    
+    with tab2:
+        st.markdown("#### 📥 Import Data")
+        
+        # Import Templates
+        st.markdown("##### Download Import Templates")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # Employees template
+            employees_template = pd.DataFrame(columns=['name', 'initial_balance', 'phone', 'email', 'department', 'position', 'join_date'])
+            csv_employees_template = employees_template.to_csv(index=False)
+            st.download_button(
+                label="📋 Employees Template",
+                data=csv_employees_template,
+                file_name="employees_template.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col2:
+            # Transactions template
+            transactions_template = pd.DataFrame(columns=['employee_id', 'type', 'amount', 'description', 'category', 'date'])
+            csv_transactions_template = transactions_template.to_csv(index=False)
+            st.download_button(
+                label="📋 Transactions Template",
+                data=csv_transactions_template,
+                file_name="transactions_template.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col3:
+            # Expenses template
+            expenses_template = pd.DataFrame(columns=['type', 'description', 'amount', 'category', 'employee_name', 'date', 'status'])
+            csv_expenses_template = expenses_template.to_csv(index=False)
+            st.download_button(
+                label="📋 Expenses Template",
+                data=csv_expenses_template,
+                file_name="expenses_template.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        # File uploaders for import
+        st.markdown("##### Upload Files to Import")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            uploaded_employees = st.file_uploader("Import Employees", type=['csv'], key="employees_upload")
+            if uploaded_employees is not None:
+                try:
+                    df = pd.read_csv(uploaded_employees)
+                    st.write("Preview:", df.head())
+                    if st.button("Import Employees", key="import_emp"):
+                        for _, row in df.iterrows():
+                            ledger.add_employee(
+                                row['name'],
+                                float(row.get('initial_balance', 0)),
+                                row.get('phone', ''),
+                                row.get('email', ''),
+                                row.get('department', ''),
+                                row.get('position', ''),
+                                row.get('join_date', datetime.now().strftime('%Y-%m-%d'))
+                            )
+                        st.success("✅ Employees imported successfully!")
+                except Exception as e:
+                    st.error(f"Error importing employees: {str(e)}")
+        
+        with col2:
+            uploaded_transactions = st.file_uploader("Import Transactions", type=['csv'], key="transactions_upload")
+            if uploaded_transactions is not None:
+                try:
+                    df = pd.read_csv(uploaded_transactions)
+                    st.write("Preview:", df.head())
+                    if st.button("Import Transactions", key="import_trans"):
+                        for _, row in df.iterrows():
+                            ledger.add_transaction(
+                                row['employee_id'],
+                                row['type'],
+                                float(row['amount']),
+                                row['description'],
+                                row.get('category', ''),
+                                row.get('date', datetime.now().strftime('%Y-%m-%d'))
+                            )
+                        st.success("✅ Transactions imported successfully!")
+                except Exception as e:
+                    st.error(f"Error importing transactions: {str(e)}")
+        
+        with col3:
+            uploaded_expenses = st.file_uploader("Import Expenses", type=['csv'], key="expenses_upload")
+            if uploaded_expenses is not None:
+                try:
+                    df = pd.read_csv(uploaded_expenses)
+                    st.write("Preview:", df.head())
+                    if st.button("Import Expenses", key="import_exp"):
+                        for _, row in df.iterrows():
+                            expense_tracker.add_expense(
+                                row['type'],
+                                row['description'],
+                                float(row['amount']),
+                                row.get('category', ''),
+                                row.get('employee_name', ''),
+                                row.get('date', datetime.now().strftime('%Y-%m-%d')),
+                                row.get('status', 'Pending')
+                            )
+                        st.success("✅ Expenses imported successfully!")
+                except Exception as e:
+                    st.error(f"Error importing expenses: {str(e)}")
+    
+    with tab3:
+        st.markdown("### 📊 Business Analytics")
+        
+        # Employee analytics
+        employees = ledger.get_employees()
+        if employees:
+            employee_data = []
+            for emp in employees:
+                balance = ledger.get_employee_balance(emp['id'])
+                employee_data.append({
+                    'name': emp['name'],
+                    'balance': balance,
+                    'status': 'Due' if balance > 0 else 'Advance' if balance < 0 else 'Settled'
+                })
+            
+            df_employees = pd.DataFrame(employee_data)
+            
+            if PLOTLY_AVAILABLE:
+                fig = px.bar(df_employees, x='name', y='balance', color='status',
+                           title="👥 Employee Balances", 
+                           color_discrete_map={'Due': 'red', 'Advance': 'green', 'Settled': 'blue'})
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Expense analytics
+        expenses = expense_tracker.get_expenses()
+        if expenses:
+            df_expenses = pd.DataFrame(expenses)
+            expense_by_type = df_expenses.groupby('type')['amount'].sum().reset_index()
+            
+            if PLOTLY_AVAILABLE:
+                fig = px.pie(expense_by_type, values='amount', names='type', 
+                           title="💰 Expense Distribution by Type")
+                st.plotly_chart(fig, use_container_width=True)
 
-    # Footer
+def render_data_management(ledger, expense_tracker):
+    st.markdown('<div class="sub-header">📁 Data Management</div>', unsafe_allow_html=True)
+    
+    tab1, tab2 = st.tabs(["🗃️ Database Management", "🔄 System Reset"])
+    
+    with tab1:
+        st.markdown("### 📊 Database Information")
+        
+        employees = ledger.get_employees()
+        transactions = ledger.get_transactions()
+        expenses = expense_tracker.get_expenses()
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("👥 Total Employees", len(employees))
+        with col2:
+            st.metric("💸 Total Transactions", len(transactions))
+        with col3:
+            st.metric("💰 Total Expenses", len(expenses))
+        
+        st.markdown("### 💾 Backup Data")
+        if st.button("🔄 Create Backup", key="create_backup"):
+            # Simple backup implementation
+            backup_data = {
+                'employees': employees,
+                'transactions': transactions,
+                'expenses': expenses,
+                'backup_date': datetime.now().isoformat()
+            }
+            
+            json_data = json.dumps(backup_data, indent=2)
+            st.download_button(
+                label="📥 Download Backup",
+                data=json_data,
+                file_name=f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json"
+            )
+    
+    with tab2:
+        st.markdown("### ⚠️ System Reset")
+        st.warning("🚨 This action cannot be undone! All data will be permanently deleted.")
+        
+        if st.button("🗑️ Reset All Data", type="secondary", use_container_width=True):
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute('DELETE FROM employees')
+            c.execute('DELETE FROM transactions')
+            c.execute('DELETE FROM expenses')
+            conn.commit()
+            conn.close()
+            st.success("✅ All data has been reset!")
+            st.rerun()
+
+def render_settings(settings_manager):
+    st.markdown('<div class="sub-header">⚙️ System Settings</div>', unsafe_allow_html=True)
+    
+    settings = settings_manager.get_settings()
+    
+    with st.form("settings_form"):
+        st.markdown("### 🏢 Company Information")
+        
+        company_name = st.text_input("Company Name", value=settings['company_name'])
+        company_address = st.text_area("Company Address", value=settings['company_address'])
+        company_phone = st.text_input("Phone Number", value=settings['company_phone'])
+        company_email = st.text_input("Email Address", value=settings['company_email'])
+        
+        st.markdown("### ⚙️ System Settings")
+        currency = st.selectbox("Currency", ["PKR", "USD", "EUR", "GBP"], 
+                               index=["PKR", "USD", "EUR", "GBP"].index(settings['currency']))
+        
+        # FIXED: Added proper submit buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            save_submitted = st.form_submit_button("💾 Save Settings", use_container_width=True)
+            if save_submitted:
+                settings_manager.update_settings(company_name, company_address, company_phone, company_email, currency)
+                st.success("✅ Settings saved successfully!")
+                st.rerun()
+        
+        with col2:
+            reset_submitted = st.form_submit_button("🔄 Reset to Default", use_container_width=True)
+            if reset_submitted:
+                settings_manager.update_settings(
+                    "HMD Solutions", 
+                    "Karachi, Pakistan", 
+                    "+92-3207429422", 
+                    "info@hmdsolutions.com", 
+                    "PKR"
+                )
+                st.success("✅ Settings reset to default!")
+                st.rerun()
+
+def render_footer():
     st.markdown("---")
-    st.markdown(
-        """
-        <div style='text-align: center; background-color: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 10px;'>
-            <h3>data<span style='color: #000000;'>nex</span><span style='color: #3498db;'>Solution</span></h3>
-            <p>For any query please feel free to contact: <a href='tel:+923207429422'>+92-3207429422</a></p>
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.markdown("""
+    <div class="footer">
+        <h3>🚀 DatanexSolution</h3>
+        <p>Advanced Business Management Solutions</p>
+        <p>For any query please feel free to contact: <strong>+92-3207429422</strong></p>
+        <p>📧 Email: info@datanexsolution.com | 🌐 Website: www.datanexsolution.com</p>
+        <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.8;">
+            &copy; 2024 HMD Solutions. All rights reserved.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+def main():
+    st.markdown('<div class="main-header">🚀 HMD Solutions - Business Management System</div>', unsafe_allow_html=True)
+
+    # Initialize systems
+    ledger = EmployeeLedger()
+    expense_tracker = ExpenseTracker()
+    pdf_generator = PDFGenerator()
+    settings_manager = SettingsManager()
+
+    # Initialize session state
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = "🏠 Dashboard"
+    if 'active_tab' not in st.session_state:
+        st.session_state.active_tab = "📋 Employee Management"
+    if 'expense_active_tab' not in st.session_state:
+        st.session_state.expense_active_tab = "📈 Expense Overview"
+    if 'editing_employee' not in st.session_state:
+        st.session_state.editing_employee = None
+    if 'deleting_employee' not in st.session_state:
+        st.session_state.deleting_employee = None
+    if 'editing_transaction' not in st.session_state:
+        st.session_state.editing_transaction = None
+    if 'deleting_transaction' not in st.session_state:
+        st.session_state.deleting_transaction = None
+    if 'editing_expense' not in st.session_state:
+        st.session_state.editing_expense = None
+    if 'deleting_expense' not in st.session_state:
+        st.session_state.deleting_expense = None
+
+    # Sidebar navigation
+    st.sidebar.markdown("""
+    <div style='background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); padding: 2rem; border-radius: 15px; color: white; text-align: center;'>
+        <h2>🚀 Navigation</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Navigation with session state
+    app_mode = st.sidebar.selectbox(
+        "Choose Application",
+        ["🏠 Dashboard", "👥 Employee Ledger", "💰 Expense Management", "📊 Reports & Analytics", "📁 Data Management", "⚙️ Settings"],
+        index=["🏠 Dashboard", "👥 Employee Ledger", "💰 Expense Management", "📊 Reports & Analytics", "📁 Data Management", "⚙️ Settings"].index(st.session_state.current_page)
     )
 
+    # Update current page
+    st.session_state.current_page = app_mode
+
+    # Quick actions in sidebar - FIXED: Now working properly
+    st.sidebar.markdown("### ⚡ Quick Actions")
+    if st.sidebar.button("➕ Add Employee", use_container_width=True, key="sidebar_add_emp"):
+        st.session_state.current_page = "👥 Employee Ledger"
+        st.session_state.active_tab = "➕ Add Employee"
+        st.rerun()
+        
+    if st.sidebar.button("💸 Add Transaction", use_container_width=True, key="sidebar_add_trans"):
+        st.session_state.current_page = "👥 Employee Ledger"
+        st.session_state.active_tab = "💸 Record Transaction"
+        st.rerun()
+        
+    if st.sidebar.button("💰 Add Expense", use_container_width=True, key="sidebar_add_exp"):
+        st.session_state.current_page = "💰 Expense Management"
+        st.session_state.expense_active_tab = "➕ Add Expense"
+        st.rerun()
+
+    # Footer in sidebar
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("""
+    <div style='text-align: center; color: #666;'>
+        <h4>🚀 DatanexSolution</h4>
+        <p>For any query please feel free to contact:</p>
+        <p><strong>📞 +92-3207429422</strong></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Render the selected page
+    if st.session_state.current_page == "🏠 Dashboard":
+        render_dashboard(ledger, expense_tracker, pdf_generator)
+    elif st.session_state.current_page == "👥 Employee Ledger":
+        render_employee_ledger(ledger, pdf_generator)
+    elif st.session_state.current_page == "💰 Expense Management":
+        render_expense_dashboard(expense_tracker, ledger, pdf_generator)
+    elif st.session_state.current_page == "📊 Reports & Analytics":
+        render_reports_analytics(ledger, expense_tracker, pdf_generator)
+    elif st.session_state.current_page == "📁 Data Management":
+        render_data_management(ledger, expense_tracker)
+    else:  # Settings
+        render_settings(settings_manager)
 
 if __name__ == "__main__":
     main()
+    render_footer()
