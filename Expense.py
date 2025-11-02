@@ -202,20 +202,20 @@ st.markdown("""
 
 # Database setup for persistent storage
 def init_database():
-    conn = sqlite3.connect('hmd_solutions.db')
+    conn = sqlite3.connect('hmd_solutions.db', check_same_thread=False)
     c = conn.cursor()
 
-    # Create employees table
+    # Create employees table with all columns
     c.execute('''
         CREATE TABLE IF NOT EXISTS employees (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             initial_balance REAL DEFAULT 0,
-            phone TEXT,
-            email TEXT,
-            department TEXT,
-            position TEXT,
-            join_date TEXT,
+            phone TEXT DEFAULT '',
+            email TEXT DEFAULT '',
+            department TEXT DEFAULT '',
+            position TEXT DEFAULT '',
+            join_date TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -228,7 +228,7 @@ def init_database():
             type TEXT NOT NULL,
             amount REAL NOT NULL,
             description TEXT NOT NULL,
-            category TEXT,
+            category TEXT DEFAULT '',
             date TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (employee_id) REFERENCES employees (id)
@@ -242,8 +242,8 @@ def init_database():
             type TEXT NOT NULL,
             description TEXT NOT NULL,
             amount REAL NOT NULL,
-            category TEXT,
-            employee_name TEXT,
+            category TEXT DEFAULT '',
+            employee_name TEXT DEFAULT '',
             date TEXT NOT NULL,
             status TEXT DEFAULT 'Pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -273,7 +273,7 @@ def init_database():
     conn.close()
 
 def get_db_connection():
-    return sqlite3.connect('hmd_solutions.db')
+    return sqlite3.connect('hmd_solutions.db', check_same_thread=False)
 
 class SettingsManager:
     def __init__(self):
@@ -320,14 +320,19 @@ class EmployeeLedger:
         if join_date is None:
             join_date = datetime.now().strftime('%Y-%m-%d')
         
-        c.execute('''
-            INSERT INTO employees (id, name, initial_balance, phone, email, department, position, join_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (employee_id, name, initial_balance, phone, email, department, position, join_date))
-        
-        conn.commit()
-        conn.close()
-        return employee_id
+        try:
+            c.execute('''
+                INSERT INTO employees (id, name, initial_balance, phone, email, department, position, join_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (employee_id, name, initial_balance, phone, email, department, position, join_date))
+            
+            conn.commit()
+            return employee_id
+        except Exception as e:
+            st.error(f"Error adding employee: {str(e)}")
+            return None
+        finally:
+            conn.close()
     
     def get_employees(self, search_query=""):
         conn = get_db_connection()
@@ -347,29 +352,16 @@ class EmployeeLedger:
             employees = []
             
             for row in rows:
-                # Handle different database schemas by checking row length
-                if len(row) >= 8:  # New schema with all fields
-                    employee = {
-                        'id': row[0], 
-                        'name': row[1], 
-                        'initial_balance': row[2],
-                        'phone': row[3] if len(row) > 3 else "",
-                        'email': row[4] if len(row) > 4 else "",
-                        'department': row[5] if len(row) > 5 else "",
-                        'position': row[6] if len(row) > 6 else "",
-                        'join_date': row[7] if len(row) > 7 else datetime.now().strftime('%Y-%m-%d')
-                    }
-                else:  # Old schema with fewer fields
-                    employee = {
-                        'id': row[0], 
-                        'name': row[1], 
-                        'initial_balance': row[2] if len(row) > 2 else 0,
-                        'phone': "",
-                        'email': "",
-                        'department': "",
-                        'position': "",
-                        'join_date': datetime.now().strftime('%Y-%m-%d')
-                    }
+                employee = {
+                    'id': row[0], 
+                    'name': row[1], 
+                    'initial_balance': row[2] if len(row) > 2 else 0,
+                    'phone': row[3] if len(row) > 3 else "",
+                    'email': row[4] if len(row) > 4 else "",
+                    'department': row[5] if len(row) > 5 else "",
+                    'position': row[6] if len(row) > 6 else "",
+                    'join_date': row[7] if len(row) > 7 else datetime.now().strftime('%Y-%m-%d')
+                }
                 employees.append(employee)
             
             return employees
@@ -387,28 +379,16 @@ class EmployeeLedger:
             row = c.fetchone()
             
             if row:
-                if len(row) >= 8:  # New schema
-                    return {
-                        'id': row[0], 
-                        'name': row[1], 
-                        'initial_balance': row[2],
-                        'phone': row[3],
-                        'email': row[4],
-                        'department': row[5],
-                        'position': row[6],
-                        'join_date': row[7]
-                    }
-                else:  # Old schema
-                    return {
-                        'id': row[0], 
-                        'name': row[1], 
-                        'initial_balance': row[2] if len(row) > 2 else 0,
-                        'phone': "",
-                        'email': "",
-                        'department': "",
-                        'position': "",
-                        'join_date': datetime.now().strftime('%Y-%m-%d')
-                    }
+                return {
+                    'id': row[0], 
+                    'name': row[1], 
+                    'initial_balance': row[2] if len(row) > 2 else 0,
+                    'phone': row[3] if len(row) > 3 else "",
+                    'email': row[4] if len(row) > 4 else "",
+                    'department': row[5] if len(row) > 5 else "",
+                    'position': row[6] if len(row) > 6 else "",
+                    'join_date': row[7] if len(row) > 7 else datetime.now().strftime('%Y-%m-%d')
+                }
             return None
         except Exception as e:
             st.error(f"Error fetching employee: {str(e)}")
@@ -420,28 +400,16 @@ class EmployeeLedger:
         conn = get_db_connection()
         c = conn.cursor()
         try:
-            # First check if the table has the new columns
-            c.execute("PRAGMA table_info(employees)")
-            columns = [column[1] for column in c.fetchall()]
-            
-            if 'phone' in columns and 'email' in columns and 'department' in columns and 'position' in columns and 'join_date' in columns:
-                # New schema
-                c.execute('''
-                    UPDATE employees 
-                    SET name = ?, initial_balance = ?, phone = ?, email = ?, department = ?, position = ?, join_date = ?
-                    WHERE id = ?
-                ''', (name, initial_balance, phone, email, department, position, join_date, employee_id))
-            else:
-                # Old schema - only update basic fields
-                c.execute('''
-                    UPDATE employees 
-                    SET name = ?, initial_balance = ?
-                    WHERE id = ?
-                ''', (name, initial_balance, employee_id))
-            
+            c.execute('''
+                UPDATE employees 
+                SET name = ?, initial_balance = ?, phone = ?, email = ?, department = ?, position = ?, join_date = ?
+                WHERE id = ?
+            ''', (name, initial_balance, phone, email, department, position, join_date, employee_id))
             conn.commit()
+            return True
         except Exception as e:
             st.error(f"Error updating employee: {str(e)}")
+            return False
         finally:
             conn.close()
     
@@ -449,18 +417,26 @@ class EmployeeLedger:
         conn = get_db_connection()
         c = conn.cursor()
         try:
+            # First delete related transactions
+            c.execute('DELETE FROM transactions WHERE employee_id = ?', (employee_id,))
+            # Then delete employee
             c.execute('DELETE FROM employees WHERE id = ?', (employee_id,))
             conn.commit()
+            return True
         except Exception as e:
             st.error(f"Error deleting employee: {str(e)}")
+            return False
         finally:
             conn.close()
     
-    def add_transaction(self, employee_id, transaction_type, amount, description, category, date):
+    def add_transaction(self, employee_id, transaction_type, amount, description, category="", date=None):
         conn = get_db_connection()
         c = conn.cursor()
         try:
             transaction_id = str(uuid.uuid4())
+            if date is None:
+                date = datetime.now().strftime('%Y-%m-%d')
+                
             c.execute('''
                 INSERT INTO transactions (id, employee_id, type, amount, description, category, date)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -492,26 +468,15 @@ class EmployeeLedger:
             transactions = []
             
             for row in rows:
-                if len(row) >= 7:  # With category
-                    transaction = {
-                        'id': row[0],
-                        'employee_id': row[1],
-                        'type': row[2],
-                        'amount': row[3],
-                        'description': row[4],
-                        'category': row[5] if len(row) > 5 else "",
-                        'date': row[6]
-                    }
-                else:  # Without category
-                    transaction = {
-                        'id': row[0],
-                        'employee_id': row[1],
-                        'type': row[2],
-                        'amount': row[3],
-                        'description': row[4],
-                        'category': "",
-                        'date': row[5] if len(row) > 5 else row[4]  # Handle different schemas
-                    }
+                transaction = {
+                    'id': row[0],
+                    'employee_id': row[1],
+                    'type': row[2],
+                    'amount': row[3],
+                    'description': row[4],
+                    'category': row[5] if len(row) > 5 else "",
+                    'date': row[6] if len(row) > 6 else row[5]
+                }
                 transactions.append(transaction)
             
             return transactions
@@ -529,26 +494,15 @@ class EmployeeLedger:
             row = c.fetchone()
             
             if row:
-                if len(row) >= 7:
-                    return {
-                        'id': row[0],
-                        'employee_id': row[1],
-                        'type': row[2],
-                        'amount': row[3],
-                        'description': row[4],
-                        'category': row[5],
-                        'date': row[6]
-                    }
-                else:
-                    return {
-                        'id': row[0],
-                        'employee_id': row[1],
-                        'type': row[2],
-                        'amount': row[3],
-                        'description': row[4],
-                        'category': "",
-                        'date': row[5] if len(row) > 5 else row[4]
-                    }
+                return {
+                    'id': row[0],
+                    'employee_id': row[1],
+                    'type': row[2],
+                    'amount': row[3],
+                    'description': row[4],
+                    'category': row[5] if len(row) > 5 else "",
+                    'date': row[6] if len(row) > 6 else row[5]
+                }
             return None
         except Exception as e:
             st.error(f"Error fetching transaction: {str(e)}")
@@ -560,26 +514,16 @@ class EmployeeLedger:
         conn = get_db_connection()
         c = conn.cursor()
         try:
-            # Check if category column exists
-            c.execute("PRAGMA table_info(transactions)")
-            columns = [column[1] for column in c.fetchall()]
-            
-            if 'category' in columns:
-                c.execute('''
-                    UPDATE transactions 
-                    SET employee_id = ?, type = ?, amount = ?, description = ?, category = ?, date = ?
-                    WHERE id = ?
-                ''', (employee_id, transaction_type, amount, description, category, date, transaction_id))
-            else:
-                c.execute('''
-                    UPDATE transactions 
-                    SET employee_id = ?, type = ?, amount = ?, description = ?, date = ?
-                    WHERE id = ?
-                ''', (employee_id, transaction_type, amount, description, date, transaction_id))
-            
+            c.execute('''
+                UPDATE transactions 
+                SET employee_id = ?, type = ?, amount = ?, description = ?, category = ?, date = ?
+                WHERE id = ?
+            ''', (employee_id, transaction_type, amount, description, category, date, transaction_id))
             conn.commit()
+            return True
         except Exception as e:
             st.error(f"Error updating transaction: {str(e)}")
+            return False
         finally:
             conn.close()
     
@@ -589,8 +533,10 @@ class EmployeeLedger:
         try:
             c.execute('DELETE FROM transactions WHERE id = ?', (transaction_id,))
             conn.commit()
+            return True
         except Exception as e:
             st.error(f"Error deleting transaction: {str(e)}")
+            return False
         finally:
             conn.close()
     
@@ -618,7 +564,6 @@ class EmployeeLedger:
                     total_payments += amount if amount else 0
             
             # Balance = Initial Balance + Expenses - Payments
-            # Positive balance means employee owes money, negative means advance
             return initial_balance + total_expenses - total_payments
         except Exception as e:
             st.error(f"Error calculating balance: {str(e)}")
@@ -683,14 +628,14 @@ class EmployeeLedger:
             transactions = []
             
             for row in rows:
-                if len(row) >= 8:  # With employee_name
+                if len(row) >= 8:
                     transaction = {
                         'id': row[0],
                         'employee_id': row[1],
                         'type': row[2],
                         'amount': row[3],
                         'description': row[4],
-                        'category': row[5] if len(row) > 5 else "",
+                        'category': row[5],
                         'date': row[6],
                         'employee_name': row[7]
                     }
@@ -718,7 +663,7 @@ class ExpenseTracker:
     def __init__(self):
         init_database()
     
-    def add_expense(self, expense_type, description, amount, category, employee_name=None, date=None, status="Pending"):
+    def add_expense(self, expense_type, description, amount, category="", employee_name=None, date=None, status="Pending"):
         conn = get_db_connection()
         c = conn.cursor()
         try:
@@ -771,13 +716,13 @@ class ExpenseTracker:
             expenses = []
             
             for row in rows:
-                if len(row) >= 8:  # With status
+                if len(row) >= 8:
                     expense = {
                         'id': row[0],
                         'type': row[1],
                         'description': row[2],
                         'amount': row[3],
-                        'category': row[4] if len(row) > 4 else "",
+                        'category': row[4],
                         'employee_name': row[5],
                         'date': row[6],
                         'status': row[7]
@@ -843,26 +788,16 @@ class ExpenseTracker:
         conn = get_db_connection()
         c = conn.cursor()
         try:
-            # Check if category and status columns exist
-            c.execute("PRAGMA table_info(expenses)")
-            columns = [column[1] for column in c.fetchall()]
-            
-            if 'category' in columns and 'status' in columns:
-                c.execute('''
-                    UPDATE expenses 
-                    SET type = ?, description = ?, amount = ?, category = ?, employee_name = ?, date = ?, status = ?
-                    WHERE id = ?
-                ''', (expense_type, description, amount, category, employee_name, date, status, expense_id))
-            else:
-                c.execute('''
-                    UPDATE expenses 
-                    SET type = ?, description = ?, amount = ?, employee_name = ?, date = ?
-                    WHERE id = ?
-                ''', (expense_type, description, amount, employee_name, date, expense_id))
-            
+            c.execute('''
+                UPDATE expenses 
+                SET type = ?, description = ?, amount = ?, category = ?, employee_name = ?, date = ?, status = ?
+                WHERE id = ?
+            ''', (expense_type, description, amount, category, employee_name, date, status, expense_id))
             conn.commit()
+            return True
         except Exception as e:
             st.error(f"Error updating expense: {str(e)}")
+            return False
         finally:
             conn.close()
     
@@ -872,8 +807,10 @@ class ExpenseTracker:
         try:
             c.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
             conn.commit()
+            return True
         except Exception as e:
             st.error(f"Error deleting expense: {str(e)}")
+            return False
         finally:
             conn.close()
     
@@ -899,8 +836,6 @@ class ExpenseTracker:
                 'grand_total': 0,
                 'expense_count': 0
             }
-
-# ... [Rest of the code remains the same - PDFGenerator class and all render functions]
 
 class PDFGenerator:
     def __init__(self):
@@ -1281,8 +1216,6 @@ class PDFGenerator:
             st.error(f"Error generating PDF: {str(e)}")
             return None
 
-# ... [All the render functions remain exactly the same as in the previous version]
-
 def render_dashboard(ledger, expense_tracker, pdf_generator):
     st.markdown('<div class="sub-header">📊 Business Dashboard</div>', unsafe_allow_html=True)
 
@@ -1386,33 +1319,54 @@ def render_dashboard(ledger, expense_tracker, pdf_generator):
         else:
             st.info("No expenses recorded yet")
 
-    # Quick actions
+    # Quick actions - FIXED: Now working properly
     st.markdown("### ⚡ Quick Actions")
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         if st.button("➕ Add New Employee", use_container_width=True, key="quick_add_emp"):
-            st.session_state.quick_action = "add_employee"
+            st.session_state.current_page = "👥 Employee Ledger"
+            st.session_state.active_tab = "➕ Add Employee"
+            st.rerun()
 
     with col2:
         if st.button("💸 Record Transaction", use_container_width=True, key="quick_add_trans"):
-            st.session_state.quick_action = "add_transaction"
+            st.session_state.current_page = "👥 Employee Ledger"
+            st.session_state.active_tab = "💸 Record Transaction"
+            st.rerun()
 
     with col3:
         if st.button("💰 Add Expense", use_container_width=True, key="quick_add_exp"):
-            st.session_state.quick_action = "add_expense"
+            st.session_state.current_page = "💰 Expense Management"
+            st.session_state.active_tab = "➕ Add Expense"
+            st.rerun()
 
     with col4:
         if st.button("📊 View Reports", use_container_width=True, key="quick_reports"):
-            st.session_state.quick_action = "view_reports"
+            st.session_state.current_page = "📊 Reports & Analytics"
+            st.rerun()
 
 def render_employee_ledger(ledger, pdf_generator):
     st.markdown('<div class="sub-header">👥 Employee Ledger System</div>', unsafe_allow_html=True)
     st.write("Track expenses, payments, and balances for all employees")
 
-    # Tabs for different sections
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["📋 Employee Management", "➕ Add Employee", "💸 Record Transaction", "📊 Employee Details"])
+    # Initialize session state for active tab
+    if 'active_tab' not in st.session_state:
+        st.session_state.active_tab = "📋 Employee Management"
+
+    # Create tabs
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📋 Employee Management", 
+        "➕ Add Employee", 
+        "💸 Record Transaction", 
+        "📊 Employee Details"
+    ])
+
+    # Set active tab from session state
+    if st.session_state.get('active_tab') == "➕ Add Employee":
+        st.rerun = lambda: st.experimental_set_query_params(tab="add_employee")
+    elif st.session_state.get('active_tab') == "💸 Record Transaction":
+        st.rerun = lambda: st.experimental_set_query_params(tab="record_transaction")
 
     with tab1:
         st.markdown("### 👥 Employee Management")
@@ -1497,11 +1451,11 @@ def render_employee_ledger(ledger, pdf_generator):
                             col1, col2 = st.columns(2)
                             with col1:
                                 if st.form_submit_button("💾 Update Employee", use_container_width=True):
-                                    ledger.update_employee(emp['id'], new_name, new_initial_balance, new_phone, 
-                                                         new_email, new_department, new_position, new_join_date.isoformat())
-                                    st.success("✅ Employee updated successfully!")
-                                    del st.session_state.editing_employee
-                                    st.rerun()
+                                    if ledger.update_employee(emp['id'], new_name, new_initial_balance, new_phone, 
+                                                         new_email, new_department, new_position, new_join_date.isoformat()):
+                                        st.success("✅ Employee updated successfully!")
+                                        del st.session_state.editing_employee
+                                        st.rerun()
                             with col2:
                                 if st.form_submit_button("❌ Cancel", use_container_width=True):
                                     del st.session_state.editing_employee
@@ -1513,10 +1467,10 @@ def render_employee_ledger(ledger, pdf_generator):
                         col1, col2 = st.columns(2)
                         with col1:
                             if st.button("✅ Yes, Delete", key=f"confirm_del_emp_{emp['id']}", use_container_width=True):
-                                ledger.delete_employee(emp['id'])
-                                st.success("✅ Employee deleted successfully!")
-                                del st.session_state.deleting_employee
-                                st.rerun()
+                                if ledger.delete_employee(emp['id']):
+                                    st.success("✅ Employee deleted successfully!")
+                                    del st.session_state.deleting_employee
+                                    st.rerun()
                         with col2:
                             if st.button("❌ Cancel", key=f"cancel_del_emp_{emp['id']}", use_container_width=True):
                                 del st.session_state.deleting_employee
@@ -1544,9 +1498,10 @@ def render_employee_ledger(ledger, pdf_generator):
             
             if st.form_submit_button("➕ Add Employee", use_container_width=True):
                 if name:
-                    ledger.add_employee(name, initial_balance, phone, email, department, position, join_date.isoformat())
-                    st.success(f"✅ Employee {name} added successfully!")
-                    st.rerun()
+                    employee_id = ledger.add_employee(name, initial_balance, phone, email, department, position, join_date.isoformat())
+                    if employee_id:
+                        st.success(f"✅ Employee {name} added successfully!")
+                        st.rerun()
                 else:
                     st.error("❌ Please enter employee name")
 
@@ -1590,6 +1545,53 @@ def render_employee_ledger(ledger, pdf_generator):
                             st.session_state.deleting_transaction = trans['id']
                     
                     st.divider()
+                    
+                    # Edit transaction form
+                    if st.session_state.get('editing_transaction') == trans['id']:
+                        with st.form(f"edit_transaction_form_{trans['id']}"):
+                            st.markdown("#### ✏️ Edit Transaction")
+                            
+                            employees = ledger.get_employees()
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                employee_id = st.selectbox("Employee", 
+                                                         options=[emp['id'] for emp in employees],
+                                                         format_func=lambda x: next(emp['name'] for emp in employees if emp['id'] == x),
+                                                         index=next(i for i, emp in enumerate(employees) if emp['id'] == trans['employee_id']))
+                                transaction_type = st.selectbox("Type", ["expense", "payment"], 
+                                                              index=0 if trans['type'] == 'expense' else 1)
+                                amount = st.number_input("Amount", value=trans['amount'])
+                            with col2:
+                                description = st.text_input("Description", value=trans['description'])
+                                category = st.text_input("Category", value=trans.get('category', ''))
+                                date = st.date_input("Date", value=datetime.strptime(trans['date'], '%Y-%m-%d').date() if isinstance(trans['date'], str) else trans['date'])
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                if st.form_submit_button("💾 Update Transaction", use_container_width=True):
+                                    if ledger.update_transaction(trans['id'], employee_id, transaction_type, amount, description, category, date.isoformat()):
+                                        st.success("✅ Transaction updated successfully!")
+                                        del st.session_state.editing_transaction
+                                        st.rerun()
+                            with col2:
+                                if st.form_submit_button("❌ Cancel", use_container_width=True):
+                                    del st.session_state.editing_transaction
+                                    st.rerun()
+                    
+                    # Delete transaction confirmation
+                    if st.session_state.get('deleting_transaction') == trans['id']:
+                        st.warning(f"⚠️ Are you sure you want to delete this transaction?")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("✅ Yes, Delete", key=f"confirm_del_trans_{trans['id']}", use_container_width=True):
+                                if ledger.delete_transaction(trans['id']):
+                                    st.success("✅ Transaction deleted successfully!")
+                                    del st.session_state.deleting_transaction
+                                    st.rerun()
+                        with col2:
+                            if st.button("❌ Cancel", key=f"cancel_del_trans_{trans['id']}", use_container_width=True):
+                                del st.session_state.deleting_transaction
+                                st.rerun()
         
         # Add new transaction form
         st.markdown("### ➕ Record New Transaction")
@@ -1611,9 +1613,10 @@ def render_employee_ledger(ledger, pdf_generator):
                 
                 if st.form_submit_button("💾 Record Transaction", use_container_width=True):
                     if description and amount > 0:
-                        ledger.add_transaction(employee_id, transaction_type, amount, description, category, date.isoformat())
-                        st.success("✅ Transaction recorded successfully!")
-                        st.rerun()
+                        transaction_id = ledger.add_transaction(employee_id, transaction_type, amount, description, category, date.isoformat())
+                        if transaction_id:
+                            st.success("✅ Transaction recorded successfully!")
+                            st.rerun()
                     else:
                         st.error("❌ Please fill all required fields correctly")
             else:
@@ -1678,7 +1681,7 @@ def render_employee_ledger(ledger, pdf_generator):
                     st.markdown("#### 📋 Transaction History")
                     for t in transactions:
                         with st.container():
-                            col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
+                            col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
                             with col1:
                                 st.write(f"**{t['description']}**")
                                 if t.get('category'):
@@ -1703,8 +1706,16 @@ def render_expense_dashboard(expense_tracker, ledger, pdf_generator):
     st.markdown('<div class="sub-header">💰 Expense Management</div>', unsafe_allow_html=True)
     st.write("Track and manage all company and employee expenses")
 
-    # Tabs for different sections
-    tab1, tab2, tab3 = st.tabs(["📈 Expense Overview", "➕ Add Expense", "📋 Expense Management"])
+    # Initialize session state for active tab
+    if 'expense_active_tab' not in st.session_state:
+        st.session_state.expense_active_tab = "📈 Expense Overview"
+
+    # Create tabs
+    tab1, tab2, tab3 = st.tabs([
+        "📈 Expense Overview", 
+        "➕ Add Expense", 
+        "📋 Expense Management"
+    ])
 
     with tab1:
         st.markdown("### 📈 Expense Overview")
@@ -1756,9 +1767,10 @@ def render_expense_dashboard(expense_tracker, ledger, pdf_generator):
             if st.form_submit_button("💾 Add Expense", use_container_width=True):
                 if description and amount > 0:
                     emp_name = employee_name if expense_type == "employee" else None
-                    expense_tracker.add_expense(expense_type, description, amount, category, emp_name, date.isoformat(), status)
-                    st.success("✅ Expense added successfully!")
-                    st.rerun()
+                    expense_id = expense_tracker.add_expense(expense_type, description, amount, category, emp_name, date.isoformat(), status)
+                    if expense_id:
+                        st.success("✅ Expense added successfully!")
+                        st.rerun()
                 else:
                     st.error("❌ Please fill all required fields correctly")
 
@@ -1818,6 +1830,8 @@ def render_expense_dashboard(expense_tracker, ledger, pdf_generator):
                     with col6:
                         if st.button("✏️ Edit", key=f"edit_exp_{exp['id']}", use_container_width=True):
                             st.session_state.editing_expense = exp['id']
+                        if st.button("🗑️ Delete", key=f"delete_exp_{exp['id']}", use_container_width=True):
+                            st.session_state.deleting_expense = exp['id']
                     
                     st.divider()
                     
@@ -1853,15 +1867,30 @@ def render_expense_dashboard(expense_tracker, ledger, pdf_generator):
                             with col1:
                                 if st.form_submit_button("💾 Update Expense", use_container_width=True):
                                     emp_name = new_employee if new_type == "employee" else None
-                                    expense_tracker.update_expense(exp['id'], new_type, new_description, new_amount, 
-                                                                 new_category, emp_name, new_date.isoformat(), new_status)
-                                    st.success("✅ Expense updated successfully!")
-                                    del st.session_state.editing_expense
-                                    st.rerun()
+                                    if expense_tracker.update_expense(exp['id'], new_type, new_description, new_amount, 
+                                                                 new_category, emp_name, new_date.isoformat(), new_status):
+                                        st.success("✅ Expense updated successfully!")
+                                        del st.session_state.editing_expense
+                                        st.rerun()
                             with col2:
                                 if st.form_submit_button("❌ Cancel", use_container_width=True):
                                     del st.session_state.editing_expense
                                     st.rerun()
+                    
+                    # Delete expense confirmation
+                    if st.session_state.get('deleting_expense') == exp['id']:
+                        st.warning(f"⚠️ Are you sure you want to delete this expense?")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("✅ Yes, Delete", key=f"confirm_del_exp_{exp['id']}", use_container_width=True):
+                                if expense_tracker.delete_expense(exp['id']):
+                                    st.success("✅ Expense deleted successfully!")
+                                    del st.session_state.deleting_expense
+                                    st.rerun()
+                        with col2:
+                            if st.button("❌ Cancel", key=f"cancel_del_exp_{exp['id']}", use_container_width=True):
+                                del st.session_state.deleting_expense
+                                st.rerun()
         else:
             st.info("💰 No expenses found for the selected filters.")
 
@@ -1906,9 +1935,174 @@ def render_reports_analytics(ledger, expense_tracker, pdf_generator):
                     use_container_width=True
                 )
 
-    tab1, tab2 = st.tabs(["📈 Analytics Dashboard", "📋 Export Data"])
-
+    # Data Import/Export Section
+    st.markdown("### 📁 Data Import & Export")
+    
+    tab1, tab2, tab3 = st.tabs(["📤 Export Data", "📥 Import Data", "📊 Analytics"])
+    
     with tab1:
+        st.markdown("#### 📤 Export Data")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # Export Employees
+            employees = ledger.get_employees()
+            if employees:
+                df_employees = pd.DataFrame(employees)
+                csv_employees = df_employees.to_csv(index=False)
+                st.download_button(
+                    label="📥 Export Employees CSV",
+                    data=csv_employees,
+                    file_name=f"employees_export_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.info("👥 No employee data to export")
+        
+        with col2:
+            # Export Transactions
+            transactions = ledger.get_transactions()
+            if transactions:
+                df_transactions = pd.DataFrame(transactions)
+                csv_transactions = df_transactions.to_csv(index=False)
+                st.download_button(
+                    label="📥 Export Transactions CSV",
+                    data=csv_transactions,
+                    file_name=f"transactions_export_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.info("💸 No transaction data to export")
+        
+        with col3:
+            # Export Expenses
+            expenses = expense_tracker.get_expenses()
+            if expenses:
+                df_expenses = pd.DataFrame(expenses)
+                csv_expenses = df_expenses.to_csv(index=False)
+                st.download_button(
+                    label="📥 Export Expenses CSV",
+                    data=csv_expenses,
+                    file_name=f"expenses_export_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.info("💰 No expense data to export")
+    
+    with tab2:
+        st.markdown("#### 📥 Import Data")
+        
+        # Import Templates
+        st.markdown("##### Download Import Templates")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # Employees template
+            employees_template = pd.DataFrame(columns=['name', 'initial_balance', 'phone', 'email', 'department', 'position', 'join_date'])
+            csv_employees_template = employees_template.to_csv(index=False)
+            st.download_button(
+                label="📋 Employees Template",
+                data=csv_employees_template,
+                file_name="employees_template.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col2:
+            # Transactions template
+            transactions_template = pd.DataFrame(columns=['employee_id', 'type', 'amount', 'description', 'category', 'date'])
+            csv_transactions_template = transactions_template.to_csv(index=False)
+            st.download_button(
+                label="📋 Transactions Template",
+                data=csv_transactions_template,
+                file_name="transactions_template.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col3:
+            # Expenses template
+            expenses_template = pd.DataFrame(columns=['type', 'description', 'amount', 'category', 'employee_name', 'date', 'status'])
+            csv_expenses_template = expenses_template.to_csv(index=False)
+            st.download_button(
+                label="📋 Expenses Template",
+                data=csv_expenses_template,
+                file_name="expenses_template.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        # File uploaders for import
+        st.markdown("##### Upload Files to Import")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            uploaded_employees = st.file_uploader("Import Employees", type=['csv'], key="employees_upload")
+            if uploaded_employees is not None:
+                try:
+                    df = pd.read_csv(uploaded_employees)
+                    st.write("Preview:", df.head())
+                    if st.button("Import Employees", key="import_emp"):
+                        for _, row in df.iterrows():
+                            ledger.add_employee(
+                                row['name'],
+                                float(row.get('initial_balance', 0)),
+                                row.get('phone', ''),
+                                row.get('email', ''),
+                                row.get('department', ''),
+                                row.get('position', ''),
+                                row.get('join_date', datetime.now().strftime('%Y-%m-%d'))
+                            )
+                        st.success("✅ Employees imported successfully!")
+                except Exception as e:
+                    st.error(f"Error importing employees: {str(e)}")
+        
+        with col2:
+            uploaded_transactions = st.file_uploader("Import Transactions", type=['csv'], key="transactions_upload")
+            if uploaded_transactions is not None:
+                try:
+                    df = pd.read_csv(uploaded_transactions)
+                    st.write("Preview:", df.head())
+                    if st.button("Import Transactions", key="import_trans"):
+                        for _, row in df.iterrows():
+                            ledger.add_transaction(
+                                row['employee_id'],
+                                row['type'],
+                                float(row['amount']),
+                                row['description'],
+                                row.get('category', ''),
+                                row.get('date', datetime.now().strftime('%Y-%m-%d'))
+                            )
+                        st.success("✅ Transactions imported successfully!")
+                except Exception as e:
+                    st.error(f"Error importing transactions: {str(e)}")
+        
+        with col3:
+            uploaded_expenses = st.file_uploader("Import Expenses", type=['csv'], key="expenses_upload")
+            if uploaded_expenses is not None:
+                try:
+                    df = pd.read_csv(uploaded_expenses)
+                    st.write("Preview:", df.head())
+                    if st.button("Import Expenses", key="import_exp"):
+                        for _, row in df.iterrows():
+                            expense_tracker.add_expense(
+                                row['type'],
+                                row['description'],
+                                float(row['amount']),
+                                row.get('category', ''),
+                                row.get('employee_name', ''),
+                                row.get('date', datetime.now().strftime('%Y-%m-%d')),
+                                row.get('status', 'Pending')
+                            )
+                        st.success("✅ Expenses imported successfully!")
+                except Exception as e:
+                    st.error(f"Error importing expenses: {str(e)}")
+    
+    with tab3:
         st.markdown("### 📊 Business Analytics")
         
         # Employee analytics
@@ -1941,43 +2135,6 @@ def render_reports_analytics(ledger, expense_tracker, pdf_generator):
                 fig = px.pie(expense_by_type, values='amount', names='type', 
                            title="💰 Expense Distribution by Type")
                 st.plotly_chart(fig, use_container_width=True)
-
-    with tab2:
-        st.markdown("### 📤 Data Export")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("#### 👥 Export Employee Data")
-            employees = ledger.get_employees()
-            if employees:
-                df_employees = pd.DataFrame(employees)
-                csv_employees = df_employees.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download Employee CSV",
-                    data=csv_employees,
-                    file_name=f"employees_{datetime.now().strftime('%Y%m%d')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-            else:
-                st.info("👥 No employee data to export")
-        
-        with col2:
-            st.markdown("#### 💰 Export Expense Data")
-            expenses = expense_tracker.get_expenses()
-            if expenses:
-                df_expenses = pd.DataFrame(expenses)
-                csv_expenses = df_expenses.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download Expense CSV",
-                    data=csv_expenses,
-                    file_name=f"expenses_{datetime.now().strftime('%Y%m%d')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-            else:
-                st.info("💰 No expense data to export")
 
 def render_data_management(ledger, expense_tracker):
     st.markdown('<div class="sub-header">📁 Data Management</div>', unsafe_allow_html=True)
@@ -2091,7 +2248,13 @@ def main():
     pdf_generator = PDFGenerator()
     settings_manager = SettingsManager()
 
-    # Initialize session state for editing
+    # Initialize session state
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = "🏠 Dashboard"
+    if 'active_tab' not in st.session_state:
+        st.session_state.active_tab = "📋 Employee Management"
+    if 'expense_active_tab' not in st.session_state:
+        st.session_state.expense_active_tab = "📈 Expense Overview"
     if 'editing_employee' not in st.session_state:
         st.session_state.editing_employee = None
     if 'deleting_employee' not in st.session_state:
@@ -2102,8 +2265,8 @@ def main():
         st.session_state.deleting_transaction = None
     if 'editing_expense' not in st.session_state:
         st.session_state.editing_expense = None
-    if 'quick_action' not in st.session_state:
-        st.session_state.quick_action = None
+    if 'deleting_expense' not in st.session_state:
+        st.session_state.deleting_expense = None
 
     # Sidebar navigation
     st.sidebar.markdown("""
@@ -2112,19 +2275,32 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
+    # Navigation with session state
     app_mode = st.sidebar.selectbox(
         "Choose Application",
-        ["🏠 Dashboard", "👥 Employee Ledger", "💰 Expense Management", "📊 Reports & Analytics", "📁 Data Management", "⚙️ Settings"]
+        ["🏠 Dashboard", "👥 Employee Ledger", "💰 Expense Management", "📊 Reports & Analytics", "📁 Data Management", "⚙️ Settings"],
+        index=["🏠 Dashboard", "👥 Employee Ledger", "💰 Expense Management", "📊 Reports & Analytics", "📁 Data Management", "⚙️ Settings"].index(st.session_state.current_page)
     )
 
-    # Quick actions in sidebar
+    # Update current page
+    st.session_state.current_page = app_mode
+
+    # Quick actions in sidebar - FIXED: Now working properly
     st.sidebar.markdown("### ⚡ Quick Actions")
-    if st.sidebar.button("➕ Add Employee", use_container_width=True):
-        st.session_state.quick_action = "add_employee"
-    if st.sidebar.button("💸 Add Transaction", use_container_width=True):
-        st.session_state.quick_action = "add_transaction"
-    if st.sidebar.button("💰 Add Expense", use_container_width=True):
-        st.session_state.quick_action = "add_expense"
+    if st.sidebar.button("➕ Add Employee", use_container_width=True, key="sidebar_add_emp"):
+        st.session_state.current_page = "👥 Employee Ledger"
+        st.session_state.active_tab = "➕ Add Employee"
+        st.rerun()
+        
+    if st.sidebar.button("💸 Add Transaction", use_container_width=True, key="sidebar_add_trans"):
+        st.session_state.current_page = "👥 Employee Ledger"
+        st.session_state.active_tab = "💸 Record Transaction"
+        st.rerun()
+        
+    if st.sidebar.button("💰 Add Expense", use_container_width=True, key="sidebar_add_exp"):
+        st.session_state.current_page = "💰 Expense Management"
+        st.session_state.expense_active_tab = "➕ Add Expense"
+        st.rerun()
 
     # Footer in sidebar
     st.sidebar.markdown("---")
@@ -2136,26 +2312,16 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # Handle quick actions
-    if st.session_state.quick_action == "add_employee":
-        app_mode = "👥 Employee Ledger"
-        st.session_state.quick_action = None
-    elif st.session_state.quick_action == "add_transaction":
-        app_mode = "👥 Employee Ledger"
-        st.session_state.quick_action = None
-    elif st.session_state.quick_action == "add_expense":
-        app_mode = "💰 Expense Management"
-        st.session_state.quick_action = None
-
-    if app_mode == "🏠 Dashboard":
+    # Render the selected page
+    if st.session_state.current_page == "🏠 Dashboard":
         render_dashboard(ledger, expense_tracker, pdf_generator)
-    elif app_mode == "👥 Employee Ledger":
+    elif st.session_state.current_page == "👥 Employee Ledger":
         render_employee_ledger(ledger, pdf_generator)
-    elif app_mode == "💰 Expense Management":
+    elif st.session_state.current_page == "💰 Expense Management":
         render_expense_dashboard(expense_tracker, ledger, pdf_generator)
-    elif app_mode == "📊 Reports & Analytics":
+    elif st.session_state.current_page == "📊 Reports & Analytics":
         render_reports_analytics(ledger, expense_tracker, pdf_generator)
-    elif app_mode == "📁 Data Management":
+    elif st.session_state.current_page == "📁 Data Management":
         render_data_management(ledger, expense_tracker)
     else:  # Settings
         render_settings(settings_manager)
