@@ -17,8 +17,8 @@ import zipfile
 
 # Page configuration with optimized settings
 st.set_page_config(
-    page_title="HMD Solutions - Chemical Management System",
-    page_icon="🧪",
+    page_title="HMD Solutions ",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -929,7 +929,7 @@ def main():
     st.markdown(
         """
         <div class="main-header">
-            <h1>🧪 HMD Solutions</h1>
+            <h1>HMD Solutions</h1>
             <p>Chemical Management System | Professional Inventory & Vendor Management</p>
         </div>
         """,
@@ -941,7 +941,7 @@ def main():
         st.markdown(
             """
             <div style="background: linear-gradient(135deg, #000000 0%, #feb47b 100%); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;">
-                <h3>📊 Navigation</h3>
+                <h3>Navigation</h3>
             </div>
             """,
             unsafe_allow_html=True
@@ -979,7 +979,7 @@ def main():
         # Welcome section
         if not st.session_state.chemicals and not st.session_state.packaging_materials:
             st.info(
-                "👋 Welcome to HMD Solutions Chemical Management System! Start by adding chemicals and packaging materials.")
+                "👋 Welcome to HMD Solutions Chemical Management System")
             col1, col2, col3 = st.columns(3)
             with col1:
                 if st.button("🧪 Add Chemicals", use_container_width=True, key="add_chem_btn"):
@@ -2242,3 +2242,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
