@@ -26,76 +26,185 @@ st.set_page_config(
 # Custom CSS for orange background and better visibility
 st.markdown(
     """
-    <style>
+   <style>
+    /* App background */
     .stApp {
-        background: linear-gradient(135deg, #000000 0%, #121212 100%);
+        background: linear-gradient(135deg, #004e92 0%, #000428 100%);
     }
+
+    /* Main container */
+    .main-container {
+        background: rgba(248, 249, 250, 0.98); /* Light gray instead of white */
+        border-radius: 20px;
+        padding: 25px;
+        margin: 15px 0;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(10px);
+    }
+
+    /* Header */
     .main-header {
-        background: rgba(255, 255, 255, 0.95);
+        background: linear-gradient(135deg, #004e92 0%, #000428 100%);
+        color: #F8F9FA; /* Light gray instead of white */
+        padding: 30px;
+        border-radius: 20px;
+        margin-bottom: 25px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Section header */
+    .section-header {
+        background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
+        color: #001F3F; /* Deep navy blue text */
+        padding: 20px;
+        border-radius: 15px;
+        margin: 20px 0;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Cards */
+    .card {
+        background: rgba(248, 249, 250, 0.95); /* Light gray instead of white */
+        padding: 20px;
+        border-radius: 15px;
+        margin: 15px 0;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+        border-left: 5px solid #004e92;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Metric cards */
+    .metric-card {
+        background: linear-gradient(135deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%);
+        color: #F8F9FA; /* Light gray instead of soft white */
         padding: 25px;
         border-radius: 15px;
-        margin-bottom: 20px;
         text-align: center;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        border: 2px solid #000000;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+        margin: 10px;
     }
-    .section-header {
-        background: rgba(255, 255, 255, 0.98);
-        padding: 20px;
-        border-radius: 12px;
-        margin: 15px 0;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        border-left: 5px solid #000000;
-    }
-    .metric-card {
-        background: rgba(255, 255, 255, 0.95);
-        padding: 20px;
-        border-radius: 12px;
-        text-align: center;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        border-top: 4px solid #000000;
-    }
+
+    /* Vendor & Payment Cards */
     .vendor-card {
-        background: rgba(255, 255, 255, 0.98);
-        padding: 15px;
-        border-radius: 10px;
+        background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
+        color: #F8F9FA; /* Light gray instead of soft white */
+        padding: 20px;
+        border-radius: 12px;
         margin: 10px 0;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        border-left: 4px solid #121212;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
     }
+
     .payment-card {
-        background: rgba(255, 255, 255, 0.98);
+        background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
+        color: #F8F9FA; /* Light gray instead of soft white */
+        padding: 20px;
+        border-radius: 12px;
+        margin: 10px 0;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Buttons */
+    .stButton>button {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: #F8F9FA; /* Light gray instead of soft white */
+        border: none;
+        border-radius: 10px;
+        padding: 12px 24px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+    }
+
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
+    }
+
+    /* Sidebar */
+    .css-1d391kg, .sidebar .sidebar-content {
+        background: linear-gradient(180deg, #000428 0%, #004e92 100%);
+    }
+
+    /* DataFrame */
+    .stDataFrame {
+        background-color: #E9ECEF; /* Light gray instead of soft white */
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Forms */
+    .stForm {
+        background: rgba(248, 249, 250, 0.95); /* Light gray instead of white */
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        margin: 20px 0;
+    }
+
+    /* Message boxes */
+    .stSuccess {
+        background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+        color: #F8F9FA; /* Light gray instead of white */
+        border-radius: 10px;
+        padding: 15px;
+    }
+
+    .stWarning {
+        background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
+        color: #001F3F; /* Navy blue for better visibility */
+        border-radius: 10px;
+        padding: 15px;
+    }
+
+    .stError {
+        background: linear-gradient(135deg, #e52d27 0%, #b31217 100%);
+        color: #F8F9FA; /* Light gray instead of soft white */
+        border-radius: 10px;
+        padding: 15px;
+    }
+
+    .stInfo {
+        background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
+        color: #F8F9FA; /* Light gray instead of soft white */
+        border-radius: 10px;
+        padding: 15px;
+    }
+
+    /* Metric container */
+    [data-testid="metric-container"] {
+        background: rgba(255, 255, 255, 0.15); /* Slightly more opaque */
+        border: 1px solid rgba(255, 255, 255, 0.3);
         padding: 15px;
         border-radius: 10px;
-        margin: 10px 0;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        border-left: 4px solid #000000;
+        backdrop-filter: blur(10px);
     }
-    /* Ensure text visibility */
-    .stDataFrame {
-        background-color: white;
+
+    /* Input fields */
+    .stSelectbox > div > div,
+    .stNumberInput > div > div > input,
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea {
+        background: #F8F9FA; /* Light gray instead of white */
         border-radius: 10px;
-        padding: 10px;
+        color: #212529; /* Dark text for better visibility */
+        border: 1px solid #CED4DA;
     }
-    .css-1r6slb0 {
-        background-color: rgba(255, 255, 255, 0.95);
+
+    /* Table headers in PDF reports */
+    .table-header {
+        background: #FF8C00 !important;
+        color: #F8F9FA !important; /* Light gray instead of white */
     }
-    /* Sidebar styling */
-    .css-1d391kg {
-        background: linear-gradient(135deg,#000000 0%, #121212 100%);
-    }
-    .stButton>button {
-        background-color: #000000;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 10px 20px;
-    }
-    .stButton>button:hover {
-        background-color: #000000;
-        color: white;
-    }
-    </style>
+</style>
     """,
     unsafe_allow_html=True
 )
@@ -2144,3 +2253,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
