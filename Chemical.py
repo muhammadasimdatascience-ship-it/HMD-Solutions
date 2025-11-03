@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import json
@@ -34,7 +35,7 @@ st.markdown(
 
     /* Main container */
     .main-container {
-        background: rgba(255, 255, 255, 0.97);
+        background: rgba(248, 249, 250, 0.98); /* Light gray instead of white */
         border-radius: 20px;
         padding: 25px;
         margin: 15px 0;
@@ -46,7 +47,7 @@ st.markdown(
     /* Header */
     .main-header {
         background: linear-gradient(135deg, #004e92 0%, #000428 100%);
-        color: #F8F9FA; /* Changed from white to light gray for better visibility */
+        color: #F8F9FA; /* Light gray instead of white */
         padding: 30px;
         border-radius: 20px;
         margin-bottom: 25px;
@@ -57,24 +58,22 @@ st.markdown(
     /* Section header */
     .section-header {
         background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
-        color: #1A1A1A; /* Dark gray for better contrast on yellow background */
+        color: #001F3F; /* Deep navy blue text */
         padding: 20px;
         border-radius: 15px;
         margin: 20px 0;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-        font-weight: 600;
     }
 
     /* Cards */
     .card {
-        background: rgba(255, 255, 255, 0.95);
+        background: rgba(248, 249, 250, 0.95); /* Light gray instead of white */
         padding: 20px;
         border-radius: 15px;
         margin: 15px 0;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
         border-left: 5px solid #004e92;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
-        color: #2C3E50; /* Dark blue-gray for text */
     }
 
     .card:hover {
@@ -85,40 +84,37 @@ st.markdown(
     /* Metric cards */
     .metric-card {
         background: linear-gradient(135deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%);
-        color: #F8F9FA; /* Light gray for better readability */
+        color: #F8F9FA; /* Light gray instead of soft white */
         padding: 25px;
         border-radius: 15px;
         text-align: center;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
         margin: 10px;
-        font-weight: 600;
     }
 
     /* Vendor & Payment Cards */
     .vendor-card {
         background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
-        color: #1A1A1A; /* Dark text for better contrast on orange background */
+        color: #F8F9FA; /* Light gray instead of soft white */
         padding: 20px;
         border-radius: 12px;
         margin: 10px 0;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        font-weight: 500;
     }
 
     .payment-card {
         background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
-        color: #F8F9FA; /* Light text for dark blue background */
+        color: #F8F9FA; /* Light gray instead of soft white */
         padding: 20px;
         border-radius: 12px;
         margin: 10px 0;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-        font-weight: 500;
     }
 
     /* Buttons */
     .stButton>button {
         background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        color: #1A1A1A; /* Dark text for green buttons */
+        color: #F8F9FA; /* Light gray instead of soft white */
         border: none;
         border-radius: 10px;
         padding: 12px 24px;
@@ -131,75 +127,66 @@ st.markdown(
         transform: translateY(-2px);
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
         background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
-        color: #1A1A1A;
     }
 
     /* Sidebar */
     .css-1d391kg, .sidebar .sidebar-content {
         background: linear-gradient(180deg, #000428 0%, #004e92 100%);
-        color: #F8F9FA; /* Light text in sidebar */
     }
 
     /* DataFrame */
     .stDataFrame {
-        background-color: #FFFFFF;
+        background-color: #E9ECEF; /* Light gray instead of soft white */
         border-radius: 10px;
         padding: 15px;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        color: #2C3E50; /* Dark text for dataframes */
     }
 
     /* Forms */
     .stForm {
-        background: rgba(255, 255, 255, 0.95);
+        background: rgba(248, 249, 250, 0.95); /* Light gray instead of white */
         padding: 25px;
         border-radius: 15px;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         margin: 20px 0;
-        color: #2C3E50; /* Dark text for forms */
     }
 
     /* Message boxes */
     .stSuccess {
         background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
-        color: #1A1A1A; /* Dark text for success messages */
+        color: #F8F9FA; /* Light gray instead of white */
         border-radius: 10px;
         padding: 15px;
-        font-weight: 500;
     }
 
     .stWarning {
         background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
-        color: #1A1A1A; /* Dark text for warning messages */
+        color: #001F3F; /* Navy blue for better visibility */
         border-radius: 10px;
         padding: 15px;
-        font-weight: 500;
     }
 
     .stError {
         background: linear-gradient(135deg, #e52d27 0%, #b31217 100%);
-        color: #F8F9FA; /* Light text for error messages */
+        color: #F8F9FA; /* Light gray instead of soft white */
         border-radius: 10px;
         padding: 15px;
-        font-weight: 500;
     }
 
     .stInfo {
         background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
-        color: #F8F9FA; /* Light text for info messages */
+        color: #F8F9FA; /* Light gray instead of soft white */
         border-radius: 10px;
         padding: 15px;
-        font-weight: 500;
     }
 
     /* Metric container */
     [data-testid="metric-container"] {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.15); /* Slightly more opaque */
+        border: 1px solid rgba(255, 255, 255, 0.3);
         padding: 15px;
         border-radius: 10px;
         backdrop-filter: blur(10px);
-        color: #F8F9FA; /* Light text for metrics */
     }
 
     /* Input fields */
@@ -207,26 +194,19 @@ st.markdown(
     .stNumberInput > div > div > input,
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
-        background: white;
+        background: #F8F9FA; /* Light gray instead of white */
         border-radius: 10px;
-        color: #2C3E50; /* Dark text for inputs */
+        color: #212529; /* Dark text for better visibility */
+        border: 1px solid #CED4DA;
     }
 
-    /* Text elements */
-    .stMarkdown, .stText, .stTitle, .stHeader {
-        color: #2C3E50 !important; /* Dark blue-gray for most text */
-    }
-
-    /* Specific for dark background areas */
-    .stApp .main .block-container {
-        color: #2C3E50;
-    }
-
-    /* Ensure Streamlit default text is visible */
-    .st-bb, .st-at, .st-ae, .st-af, .st-ag, .st-ah, .st-ai, .st-aj, .st-ak, .st-al, .st-am, .st-an, .st-ao, .st-ap, .st-aq, .st-ar, .st-as {
-        color: #2C3E50 !important;
+    /* Table headers in PDF reports */
+    .table-header {
+        background: #FF8C00 !important;
+        color: #F8F9FA !important; /* Light gray instead of white */
     }
 </style>
+
 
     """,
     unsafe_allow_html=True
@@ -574,18 +554,19 @@ def create_vendor_ledger_pdf(vendor_type=None, vendor_name=None):
             ])
 
         # Create table
-      table.setStyle(TableStyle([
-    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FF8C00')),
-    ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1A1A1A')),  # Changed to dark text
-    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-    ('FONTSIZE', (0, 0), (-1, 0), 9),
-    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-    ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8f9fa')),
-    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-    ('FONTSIZE', (0, 1), (-1, -1), 8),
-    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-]))
+        table = Table(data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FF8C00')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8f9fa')),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ]))
         elements.append(table)
 
         # Add transaction totals
@@ -612,18 +593,18 @@ def create_vendor_ledger_pdf(vendor_type=None, vendor_name=None):
 
         # Create payment table
         payment_table = Table(payment_data, repeatRows=1)
-       payment_table.setStyle(TableStyle([
-    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
-    ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#F8F9FA')),  # Light text on dark header
-    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-    ('FONTSIZE', (0, 0), (-1, 0), 9),
-    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-    ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ecf0f1')),
-    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-    ('FONTSIZE', (0, 1), (-1, -1), 8),
-    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-]))
+        payment_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ecf0f1')),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ]))
         elements.append(payment_table)
 
         # Add payment totals
@@ -2275,12 +2256,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
