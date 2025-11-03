@@ -26,82 +26,93 @@ st.set_page_config(
 # Custom CSS for orange background and better visibility
 st.markdown(
     """
-    <style>
+<style>
+    /* App background */
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
     }
+
+    /* Main container */
     .main-container {
-        background: rgba(255, 255, 255, 0.95);
+        background: rgba(255, 255, 255, 0.96);
         border-radius: 20px;
         padding: 25px;
         margin: 15px 0;
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
         border: 1px solid rgba(255, 255, 255, 0.3);
         backdrop-filter: blur(10px);
     }
+
+    /* Header */
     .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #0072ff 0%, #00c6ff 100%);
         color: white;
         padding: 30px;
         border-radius: 20px;
         margin-bottom: 25px;
         text-align: center;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        border: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
     }
+
+    /* Section header */
     .section-header {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        background: linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%);
         color: white;
         padding: 20px;
         border-radius: 15px;
         margin: 20px 0;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        border: none;
     }
+
+    /* Cards */
     .card {
         background: rgba(255, 255, 255, 0.95);
         padding: 20px;
         border-radius: 15px;
         margin: 15px 0;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-        border-left: 5px solid #667eea;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+        border-left: 5px solid #0072ff;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
+
     .card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.18);
     }
+
+    /* Metric cards */
     .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
         color: white;
         padding: 25px;
         border-radius: 15px;
         text-align: center;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
         margin: 10px;
-        border: none;
     }
+
+    /* Vendor & Payment Cards */
     .vendor-card {
-        background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+        background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
         color: white;
         padding: 20px;
         border-radius: 12px;
         margin: 10px 0;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        border: none;
     }
+
     .payment-card {
-        background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%);
+        background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
         color: white;
         padding: 20px;
         border-radius: 12px;
         margin: 10px 0;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        border: none;
     }
-    /* Button styling */
+
+    /* Buttons */
     .stButton>button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #0072ff 0%, #00c6ff 100%);
         color: white;
         border: none;
         border-radius: 10px;
@@ -110,62 +121,65 @@ st.markdown(
         transition: all 0.3s ease;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }
+
     .stButton>button:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
     }
-    /* Sidebar styling */
-    .css-1d391kg {
-        background: linear-gradient(180deg, #2c3e50 0%, #3498db 100%);
+
+    /* Sidebar */
+    .css-1d391kg, .sidebar .sidebar-content {
+        background: linear-gradient(180deg, #0072ff 0%, #00c6ff 100%);
     }
-    .sidebar .sidebar-content {
-        background: linear-gradient(180deg, #2c3e50 0%, #3498db 100%);
-    }
-    /* Dataframe styling */
+
+    /* DataFrame */
     .stDataFrame {
         background-color: white;
         border-radius: 10px;
         padding: 15px;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
     }
-    /* Form styling */
+
+    /* Forms */
     .stForm {
         background: rgba(255, 255, 255, 0.95);
         padding: 25px;
         border-radius: 15px;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
         margin: 20px 0;
     }
-    /* Success message */
+
+    /* Message boxes */
     .stSuccess {
-        background: linear-gradient(135deg, #00b894 0%, #00a085 100%);
+        background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
         color: white;
         border-radius: 10px;
         padding: 15px;
     }
-    /* Warning message */
+
     .stWarning {
-        background: linear-gradient(135deg, #fdcb6e 0%, #e17055 100%);
+        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
         color: white;
         border-radius: 10px;
         padding: 15px;
     }
-    /* Error message */
+
     .stError {
-        background: linear-gradient(135deg, #e17055 0%, #d63031 100%);
+        background: linear-gradient(135deg, #ff5858 0%, #f857a6 100%);
         color: white;
         border-radius: 10px;
         padding: 15px;
     }
-    /* Info message */
+
     .stInfo {
-        background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+        background: linear-gradient(135deg, #56ccf2 0%, #2f80ed 100%);
         color: white;
         border-radius: 10px;
         padding: 15px;
     }
-    /* Metric styling */
+
+    /* Metric container */
     [data-testid="metric-container"] {
         background: rgba(255, 255, 255, 0.1);
         border: 1px solid rgba(255, 255, 255, 0.2);
@@ -173,27 +187,17 @@ st.markdown(
         border-radius: 10px;
         backdrop-filter: blur(10px);
     }
-    /* Selectbox styling */
-    .stSelectbox > div > div {
-        background: white;
-        border-radius: 10px;
-    }
-    /* Number input styling */
-    .stNumberInput > div > div > input {
-        background: white;
-        border-radius: 10px;
-    }
-    /* Text input styling */
-    .stTextInput > div > div > input {
-        background: white;
-        border-radius: 10px;
-    }
-    /* Text area styling */
+
+    /* Input fields */
+    .stSelectbox > div > div,
+    .stNumberInput > div > div > input,
+    .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
         background: white;
         border-radius: 10px;
     }
 </style>
+
     """,
     unsafe_allow_html=True
 )
@@ -2242,4 +2246,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
