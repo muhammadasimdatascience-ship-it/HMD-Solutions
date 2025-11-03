@@ -80,21 +80,20 @@ st.markdown(
         box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
     }
 
-    /* Metric cards */
-    .metric-card {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        color: white;
-        padding: 25px;
-        border-radius: 15px;
-        text-align: center;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
-        margin: 10px;
-    }
-
+   /* Metric cards */
+.metric-card {
+    background: linear-gradient(135deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%);
+    color: #F5F5F5; /* soft white text for readability */
+    padding: 25px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+    margin: 10px;
+}
     /* Vendor & Payment Cards */
     .vendor-card {
         background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
-        color: white;
+        color: #F5F5F5;
         padding: 20px;
         border-radius: 12px;
         margin: 10px 0;
@@ -103,7 +102,7 @@ st.markdown(
 
     .payment-card {
         background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
-        color: white;
+        color:#F5F5F5;
         padding: 20px;
         border-radius: 12px;
         margin: 10px 0;
@@ -113,7 +112,7 @@ st.markdown(
     /* Buttons */
     .stButton>button {
         background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        color: white;
+        color: #F5F5F5;
         border: none;
         border-radius: 10px;
         padding: 12px 24px;
@@ -135,7 +134,7 @@ st.markdown(
 
     /* DataFrame */
     .stDataFrame {
-        background-color: white;
+        background-color: #F5F5F5;
         border-radius: 10px;
         padding: 15px;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
@@ -160,21 +159,21 @@ st.markdown(
 
     .stWarning {
         background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
-        color: white;
+        color: #F5F5F5;
         border-radius: 10px;
         padding: 15px;
     }
 
     .stError {
         background: linear-gradient(135deg, #e52d27 0%, #b31217 100%);
-        color: white;
+        color: #F5F5F5;
         border-radius: 10px;
         padding: 15px;
     }
 
     .stInfo {
         background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
-        color: white;
+        color: #F5F5F5;
         border-radius: 10px;
         padding: 15px;
     }
@@ -2237,7 +2236,7 @@ def main():
     st.markdown(
         """
         <div style='text-align: center; background-color: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 10px;'>
-            <h3>data<span style='color:#FF8C00;'>nex</span><span style='color:#FF8C00;'>Solution</span></h3>
+            <h3>data<span style='color:#000000;'>nex</span><span style='color:#FF8C00;'>Solution</span></h3>
             <p>For any query please feel free to contact: <a href='tel:+923207429422'>+92-3207429422</a></p>
         </div>
         """,
@@ -2247,6 +2246,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
