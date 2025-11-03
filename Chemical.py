@@ -1506,70 +1506,73 @@ def main():
                 else:
                     show_alert("Please enter a chemical name", "error")
 
-        # Add stock to existing chemical
-        with st.expander("📥 Add Stock to Existing Chemical", expanded=False):
-            if st.session_state.chemicals:
-                chemical_names = [chem['name'] for chem in st.session_state.chemicals]
-                selected_chemical = st.selectbox("Select Chemical", chemical_names, key="select_chem")
+       # Add stock to existing chemical
+with st.expander("📥 Add Stock to Existing Chemical", expanded=False):
+    if st.session_state.get("chemicals"):
+        chemical_names = [chem['name'] for chem in st.session_state.chemicals]
+        selected_chemical = st.selectbox("Select Chemical", chemical_names, key="select_chem")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            stock_to_add = st.number_input("Stock to Add (KG)", min_value=0.0, step=0.1, key="stock_add")
+        with col2:
+            new_rate = st.number_input("New Rate (Optional)", min_value=0.0, step=0.1, key="new_rate")
+
+        if st.button("Add Stock", key="add_stock_btn"):
+            chemical = next(chem for chem in st.session_state.chemicals if chem['name'] == selected_chemical)
+            chemical['stock'] += stock_to_add
+            if new_rate > 0:
+                chemical['rate'] = new_rate
+            auto_save()
+            show_alert(f"Added {stock_to_add} KG to {selected_chemical}", "success")
+            st.rerun()
+    else:
+        st.info("No chemicals available. Add chemicals first.")
+
+# Edit Chemical Section
+if st.session_state.get("chemicals"):
+    with st.expander("✏️ Edit Chemical", expanded=False):
+        chemical_to_edit = st.selectbox(
+            "Select Chemical to Edit",
+            [f"{chem['id']} - {chem['name']} - Stock: {chem['stock']} KG"
+             for chem in st.session_state.chemicals],
+            key="edit_chem_select"
+        )
+
+        if chemical_to_edit:
+            chemical_id = int(chemical_to_edit.split(" - ")[0])
+            chemical = next((chem for chem in st.session_state.chemicals if chem['id'] == chemical_id), None)
+
+            if chemical:
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    edit_name = st.text_input("Chemical Name", value=chemical['name'], key="edit_chem_name")
+                with col2:
+                    edit_stock = st.number_input("Stock (KG)", value=chemical['stock'], key="edit_chem_stock")
+                with col3:
+                    edit_rate = st.number_input("Rate (Per KG)", value=chemical['rate'], key="edit_chem_rate")
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    stock_to_add = st.number_input("Stock to Add (KG)", min_value=0.0, step=0.1, key="stock_add")
+                    update_chemical = st.button("🔄 Update Chemical", use_container_width=True)
                 with col2:
-                    new_rate = st.number_input("New Rate (Optional)", min_value=0.0, step=0.1, key="new_rate")
+                    delete_chemical = st.button("🗑️ Delete Chemical", type="secondary", use_container_width=True)
 
-                if st.button("Add Stock", key="add_stock_btn"):
-                    chemical = next(chem for chem in st.session_state.chemicals if chem['name'] == selected_chemical)
-                    chemical['stock'] += stock_to_add
-                    if new_rate > 0:
-                        chemical['rate'] = new_rate
+                if update_chemical:
+                    chemical['name'] = edit_name
+                    chemical['stock'] = edit_stock
+                    chemical['rate'] = edit_rate
                     auto_save()
-                    show_alert(f"Added {stock_to_add} KG to {selected_chemical}", "success")
+                    show_alert("Chemical updated successfully!", "success")
                     st.rerun()
-            else:
-                st.info("No chemicals available. Add chemicals first.")
 
-        # Edit Chemical Section
-        if st.session_state.chemicals:
-            with st.expander("✏️ Edit Chemical", expanded=False):
-                chemical_to_edit = st.selectbox("Select Chemical to Edit", 
-                                              [f"{chem['id']} - {chem['name']} - Stock: {chem['stock']} KG" 
-                                               for chem in st.session_state.chemicals],
-                                              key="edit_chem_select")
-
-                if chemical_to_edit:
-                    chemical_id = int(chemical_to_edit.split(" - ")[0])
-                    chemical = next((chem for chem in st.session_state.chemicals if chem['id'] == chemical_id), None)
-
-                    if chemical:
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            edit_name = st.text_input("Chemical Name", value=chemical['name'], key="edit_chem_name")
-                        with col2:
-                            edit_stock = st.number_input("Stock (KG)", value=chemical['stock'], key="edit_chem_stock")
-                        with col3:
-                            edit_rate = st.number_input("Rate (Per KG)", value=chemical['rate'], key="edit_chem_rate")
-
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            update_chemical = st.button("🔄 Update Chemical", use_container_width=True)
-                        with col2:
-                            delete_chemical = st.button("🗑️ Delete Chemical", type="secondary", use_container_width=True)
-
-                        if update_chemical:
-                            chemical['name'] = edit_name
-                            chemical['stock'] = edit_stock
-                            chemical['rate'] = edit_rate
-                            auto_save()
-                            show_alert("Chemical updated successfully!", "success")
-                            st.rerun()
-
-                        if delete_chemical:
-                            st.session_state.chemicals = [chem for chem in st.session_state.chemicals if chem['id'] != chemical_id]
-                            auto_save()
-                            show_alert("Chemical deleted successfully!", "success")
-                            st.rerun()
-
+                if delete_chemical:
+                    st.session_state.chemicals = [
+                        chem for chem in st.session_state.chemicals if chem['id'] != chemical_id
+                    ]
+                    auto_save()
+                    show_alert("Chemical deleted successfully!", "success")
+                    st.rerun()
         # Show all chemicals
         with st.expander("📋 All Chemicals Stock", expanded=True):
             if st.session_state.chemicals:
@@ -2246,6 +2249,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
