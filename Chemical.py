@@ -714,7 +714,7 @@ def create_stock_pdf():
         table = Table(data, repeatRows=1)
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FF8C00')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+           ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FF8C00')),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 9),
@@ -2246,6 +2246,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
