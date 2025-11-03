@@ -311,14 +311,14 @@ def get_product_formulas():
             {"chemical_name": "Citric Acid", "amount_per_550": 50.00}
         ],
         "URIVIT": [
-            {"chemical_name": "Sodium Benzoate", "amount_per_300": 150.00},
-            {"chemical_name": "Vitamin A", "amount_per_300": 1000.00},
-            {"chemical_name": "Vitamin E Powder", "amount_per_300": 1000.00},
-            {"chemical_name": "Vitamin C", "amount_per_300": 1000.00},
-            {"chemical_name": "Vitamin K3", "amount_per_300": 1000.00},
-            {"chemical_name": "Artichoke", "amount_per_300": 2.00},
-            {"chemical_name": "Dextoxirose", "amount_per_300": 250.00}
-        ],
+    {"chemical_name": "Sodium Benzoate", "amount_per_300": 150.00},
+    {"chemical_name": "Vitamin A", "amount_per_300": 0.09},
+    {"chemical_name": "Vitamin E Powder", "amount_per_300": 0.75},
+    {"chemical_name": "Vitamin C", "amount_per_300": 0.75},
+    {"chemical_name": "Vitamin K3", "amount_per_300": 0.30},
+    {"chemical_name": "Artichoke", "amount_per_300": 1.80},
+    {"chemical_name": "Dextoxirose", "amount_per_300": 250.00}
+],
         "DEXTOXI-VIT": [
             {"chemical_name": "Slymarine", "amount_per_500": 5.00},
             {"chemical_name": "Choline Chloride", "amount_per_500": 12.00},
@@ -2253,4 +2253,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
