@@ -29,39 +29,39 @@ st.markdown(
 <style>
     /* App background */
     .stApp {
-        background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+        background: linear-gradient(135deg, #004e92 0%, #000428 100%);
     }
 
     /* Main container */
     .main-container {
-        background: rgba(255, 255, 255, 0.96);
+        background: rgba(255, 255, 255, 0.97);
         border-radius: 20px;
         padding: 25px;
         margin: 15px 0;
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
         border: 1px solid rgba(255, 255, 255, 0.3);
         backdrop-filter: blur(10px);
     }
 
     /* Header */
     .main-header {
-        background: linear-gradient(135deg, #0072ff 0%, #00c6ff 100%);
+        background: linear-gradient(135deg, #004e92 0%, #000428 100%);
         color: white;
         padding: 30px;
         border-radius: 20px;
         margin-bottom: 25px;
         text-align: center;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     }
 
     /* Section header */
     .section-header {
-        background: linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%);
+        background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
         color: white;
         padding: 20px;
         border-radius: 15px;
         margin: 20px 0;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
     }
 
     /* Cards */
@@ -71,18 +71,18 @@ st.markdown(
         border-radius: 15px;
         margin: 15px 0;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
-        border-left: 5px solid #0072ff;
+        border-left: 5px solid #004e92;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
 
     .card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.18);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
     }
 
     /* Metric cards */
     .metric-card {
-        background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
         color: white;
         padding: 25px;
         border-radius: 15px;
@@ -93,7 +93,7 @@ st.markdown(
 
     /* Vendor & Payment Cards */
     .vendor-card {
-        background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+        background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
         color: white;
         padding: 20px;
         border-radius: 12px;
@@ -102,35 +102,35 @@ st.markdown(
     }
 
     .payment-card {
-        background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+        background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
         color: white;
         padding: 20px;
         border-radius: 12px;
         margin: 10px 0;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
     }
 
     /* Buttons */
     .stButton>button {
-        background: linear-gradient(135deg, #0072ff 0%, #00c6ff 100%);
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
         color: white;
         border: none;
         border-radius: 10px;
         padding: 12px 24px;
         font-weight: 600;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
     }
 
     .stButton>button:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-        background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+        background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
     }
 
     /* Sidebar */
     .css-1d391kg, .sidebar .sidebar-content {
-        background: linear-gradient(180deg, #0072ff 0%, #00c6ff 100%);
+        background: linear-gradient(180deg, #000428 0%, #004e92 100%);
     }
 
     /* DataFrame */
@@ -146,7 +146,7 @@ st.markdown(
         background: rgba(255, 255, 255, 0.95);
         padding: 25px;
         border-radius: 15px;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         margin: 20px 0;
     }
 
@@ -159,21 +159,21 @@ st.markdown(
     }
 
     .stWarning {
-        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+        background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
         color: white;
         border-radius: 10px;
         padding: 15px;
     }
 
     .stError {
-        background: linear-gradient(135deg, #ff5858 0%, #f857a6 100%);
+        background: linear-gradient(135deg, #e52d27 0%, #b31217 100%);
         color: white;
         border-radius: 10px;
         padding: 15px;
     }
 
     .stInfo {
-        background: linear-gradient(135deg, #56ccf2 0%, #2f80ed 100%);
+        background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
         color: white;
         border-radius: 10px;
         padding: 15px;
@@ -181,7 +181,7 @@ st.markdown(
 
     /* Metric container */
     [data-testid="metric-container"] {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.08);
         border: 1px solid rgba(255, 255, 255, 0.2);
         padding: 15px;
         border-radius: 10px;
@@ -197,6 +197,7 @@ st.markdown(
         border-radius: 10px;
     }
 </style>
+
 
     """,
     unsafe_allow_html=True
@@ -2246,5 +2247,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
