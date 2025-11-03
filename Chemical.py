@@ -46,7 +46,7 @@ st.markdown(
     /* Header */
     .main-header {
         background: linear-gradient(135deg, #004e92 0%, #000428 100%);
-        color: white;
+        color: #F8F9FA; /* Changed from white to light gray for better visibility */
         padding: 30px;
         border-radius: 20px;
         margin-bottom: 25px;
@@ -54,15 +54,16 @@ st.markdown(
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     }
 
- /* Section header */
-.section-header {
-    background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
-    color: #001F3F; /* Deep navy blue text */
-    padding: 20px;
-    border-radius: 15px;
-    margin: 20px 0;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-}
+    /* Section header */
+    .section-header {
+        background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
+        color: #1A1A1A; /* Dark gray for better contrast on yellow background */
+        padding: 20px;
+        border-radius: 15px;
+        margin: 20px 0;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        font-weight: 600;
+    }
 
     /* Cards */
     .card {
@@ -73,6 +74,7 @@ st.markdown(
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
         border-left: 5px solid #004e92;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
+        color: #2C3E50; /* Dark blue-gray for text */
     }
 
     .card:hover {
@@ -80,39 +82,43 @@ st.markdown(
         box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
     }
 
-   /* Metric cards */
-.metric-card {
-    background: linear-gradient(135deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%);
-    color: #F5F5F5; /* soft white text for readability */
-    padding: 25px;
-    border-radius: 15px;
-    text-align: center;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
-    margin: 10px;
-}
+    /* Metric cards */
+    .metric-card {
+        background: linear-gradient(135deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%);
+        color: #F8F9FA; /* Light gray for better readability */
+        padding: 25px;
+        border-radius: 15px;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+        margin: 10px;
+        font-weight: 600;
+    }
+
     /* Vendor & Payment Cards */
     .vendor-card {
         background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
-        color: #F5F5F5;
+        color: #1A1A1A; /* Dark text for better contrast on orange background */
         padding: 20px;
         border-radius: 12px;
         margin: 10px 0;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        font-weight: 500;
     }
 
     .payment-card {
         background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
-        color:#F5F5F5;
+        color: #F8F9FA; /* Light text for dark blue background */
         padding: 20px;
         border-radius: 12px;
         margin: 10px 0;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+        font-weight: 500;
     }
 
     /* Buttons */
     .stButton>button {
         background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        color: #F5F5F5;
+        color: #1A1A1A; /* Dark text for green buttons */
         border: none;
         border-radius: 10px;
         padding: 12px 24px;
@@ -125,19 +131,22 @@ st.markdown(
         transform: translateY(-2px);
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
         background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
+        color: #1A1A1A;
     }
 
     /* Sidebar */
     .css-1d391kg, .sidebar .sidebar-content {
         background: linear-gradient(180deg, #000428 0%, #004e92 100%);
+        color: #F8F9FA; /* Light text in sidebar */
     }
 
     /* DataFrame */
     .stDataFrame {
-        background-color: #F5F5F5;
+        background-color: #FFFFFF;
         border-radius: 10px;
         padding: 15px;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        color: #2C3E50; /* Dark text for dataframes */
     }
 
     /* Forms */
@@ -147,35 +156,40 @@ st.markdown(
         border-radius: 15px;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         margin: 20px 0;
+        color: #2C3E50; /* Dark text for forms */
     }
 
     /* Message boxes */
     .stSuccess {
         background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
-        color: white;
+        color: #1A1A1A; /* Dark text for success messages */
         border-radius: 10px;
         padding: 15px;
+        font-weight: 500;
     }
 
     .stWarning {
         background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
-        color: #F5F5F5;
+        color: #1A1A1A; /* Dark text for warning messages */
         border-radius: 10px;
         padding: 15px;
+        font-weight: 500;
     }
 
     .stError {
         background: linear-gradient(135deg, #e52d27 0%, #b31217 100%);
-        color: #F5F5F5;
+        color: #F8F9FA; /* Light text for error messages */
         border-radius: 10px;
         padding: 15px;
+        font-weight: 500;
     }
 
     .stInfo {
         background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
-        color: #F5F5F5;
+        color: #F8F9FA; /* Light text for info messages */
         border-radius: 10px;
         padding: 15px;
+        font-weight: 500;
     }
 
     /* Metric container */
@@ -185,6 +199,7 @@ st.markdown(
         padding: 15px;
         border-radius: 10px;
         backdrop-filter: blur(10px);
+        color: #F8F9FA; /* Light text for metrics */
     }
 
     /* Input fields */
@@ -194,9 +209,24 @@ st.markdown(
     .stTextArea > div > div > textarea {
         background: white;
         border-radius: 10px;
+        color: #2C3E50; /* Dark text for inputs */
+    }
+
+    /* Text elements */
+    .stMarkdown, .stText, .stTitle, .stHeader {
+        color: #2C3E50 !important; /* Dark blue-gray for most text */
+    }
+
+    /* Specific for dark background areas */
+    .stApp .main .block-container {
+        color: #2C3E50;
+    }
+
+    /* Ensure Streamlit default text is visible */
+    .st-bb, .st-at, .st-ae, .st-af, .st-ag, .st-ah, .st-ai, .st-aj, .st-ak, .st-al, .st-am, .st-an, .st-ao, .st-ap, .st-aq, .st-ar, .st-as {
+        color: #2C3E50 !important;
     }
 </style>
-
 
     """,
     unsafe_allow_html=True
@@ -544,19 +574,18 @@ def create_vendor_ledger_pdf(vendor_type=None, vendor_name=None):
             ])
 
         # Create table
-        table = Table(data, repeatRows=1)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FF8C00')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8f9fa')),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ]))
+      table.setStyle(TableStyle([
+    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FF8C00')),
+    ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1A1A1A')),  # Changed to dark text
+    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+    ('FONTSIZE', (0, 0), (-1, 0), 9),
+    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+    ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8f9fa')),
+    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+    ('FONTSIZE', (0, 1), (-1, -1), 8),
+    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+]))
         elements.append(table)
 
         # Add transaction totals
@@ -583,18 +612,18 @@ def create_vendor_ledger_pdf(vendor_type=None, vendor_name=None):
 
         # Create payment table
         payment_table = Table(payment_data, repeatRows=1)
-        payment_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ecf0f1')),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ]))
+       payment_table.setStyle(TableStyle([
+    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
+    ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#F8F9FA')),  # Light text on dark header
+    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+    ('FONTSIZE', (0, 0), (-1, 0), 9),
+    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+    ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ecf0f1')),
+    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+    ('FONTSIZE', (0, 1), (-1, -1), 8),
+    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+]))
         elements.append(payment_table)
 
         # Add payment totals
@@ -1506,73 +1535,70 @@ def main():
                 else:
                     show_alert("Please enter a chemical name", "error")
 
-       # Add stock to existing chemical
-with st.expander("📥 Add Stock to Existing Chemical", expanded=False):
-    if st.session_state.get("chemicals"):
-        chemical_names = [chem['name'] for chem in st.session_state.chemicals]
-        selected_chemical = st.selectbox("Select Chemical", chemical_names, key="select_chem")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            stock_to_add = st.number_input("Stock to Add (KG)", min_value=0.0, step=0.1, key="stock_add")
-        with col2:
-            new_rate = st.number_input("New Rate (Optional)", min_value=0.0, step=0.1, key="new_rate")
-
-        if st.button("Add Stock", key="add_stock_btn"):
-            chemical = next(chem for chem in st.session_state.chemicals if chem['name'] == selected_chemical)
-            chemical['stock'] += stock_to_add
-            if new_rate > 0:
-                chemical['rate'] = new_rate
-            auto_save()
-            show_alert(f"Added {stock_to_add} KG to {selected_chemical}", "success")
-            st.rerun()
-    else:
-        st.info("No chemicals available. Add chemicals first.")
-
-# Edit Chemical Section
-if st.session_state.get("chemicals"):
-    with st.expander("✏️ Edit Chemical", expanded=False):
-        chemical_to_edit = st.selectbox(
-            "Select Chemical to Edit",
-            [f"{chem['id']} - {chem['name']} - Stock: {chem['stock']} KG"
-             for chem in st.session_state.chemicals],
-            key="edit_chem_select"
-        )
-
-        if chemical_to_edit:
-            chemical_id = int(chemical_to_edit.split(" - ")[0])
-            chemical = next((chem for chem in st.session_state.chemicals if chem['id'] == chemical_id), None)
-
-            if chemical:
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    edit_name = st.text_input("Chemical Name", value=chemical['name'], key="edit_chem_name")
-                with col2:
-                    edit_stock = st.number_input("Stock (KG)", value=chemical['stock'], key="edit_chem_stock")
-                with col3:
-                    edit_rate = st.number_input("Rate (Per KG)", value=chemical['rate'], key="edit_chem_rate")
+      change color scheme in this code 
+ # Add stock to existing chemical
+        with st.expander("📥 Add Stock to Existing Chemical", expanded=False):
+            if st.session_state.chemicals:
+                chemical_names = [chem['name'] for chem in st.session_state.chemicals]
+                selected_chemical = st.selectbox("Select Chemical", chemical_names, key="select_chem")
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    update_chemical = st.button("🔄 Update Chemical", use_container_width=True)
+                    stock_to_add = st.number_input("Stock to Add (KG)", min_value=0.0, step=0.1, key="stock_add")
                 with col2:
-                    delete_chemical = st.button("🗑️ Delete Chemical", type="secondary", use_container_width=True)
+                    new_rate = st.number_input("New Rate (Optional)", min_value=0.0, step=0.1, key="new_rate")
 
-                if update_chemical:
-                    chemical['name'] = edit_name
-                    chemical['stock'] = edit_stock
-                    chemical['rate'] = edit_rate
+                if st.button("Add Stock", key="add_stock_btn"):
+                    chemical = next(chem for chem in st.session_state.chemicals if chem['name'] == selected_chemical)
+                    chemical['stock'] += stock_to_add
+                    if new_rate > 0:
+                        chemical['rate'] = new_rate
                     auto_save()
-                    show_alert("Chemical updated successfully!", "success")
+                    show_alert(f"Added {stock_to_add} KG to {selected_chemical}", "success")
                     st.rerun()
+            else:
+                st.info("No chemicals available. Add chemicals first.")
 
-                if delete_chemical:
-                    st.session_state.chemicals = [
-                        chem for chem in st.session_state.chemicals if chem['id'] != chemical_id
-                    ]
-                    auto_save()
-                    show_alert("Chemical deleted successfully!", "success")
-                    st.rerun()
+        # Edit Chemical Section
+        if st.session_state.chemicals:
+            with st.expander("✏️ Edit Chemical", expanded=False):
+                chemical_to_edit = st.selectbox("Select Chemical to Edit", 
+                                              [f"{chem['id']} - {chem['name']} - Stock: {chem['stock']} KG" 
+                                               for chem in st.session_state.chemicals],
+                                              key="edit_chem_select")
+
+                if chemical_to_edit:
+                    chemical_id = int(chemical_to_edit.split(" - ")[0])
+                    chemical = next((chem for chem in st.session_state.chemicals if chem['id'] == chemical_id), None)
+
+                    if chemical:
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            edit_name = st.text_input("Chemical Name", value=chemical['name'], key="edit_chem_name")
+                        with col2:
+                            edit_stock = st.number_input("Stock (KG)", value=chemical['stock'], key="edit_chem_stock")
+                        with col3:
+                            edit_rate = st.number_input("Rate (Per KG)", value=chemical['rate'], key="edit_chem_rate")
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            update_chemical = st.button("🔄 Update Chemical", use_container_width=True)
+                        with col2:
+                            delete_chemical = st.button("🗑️ Delete Chemical", type="secondary", use_container_width=True)
+
+                        if update_chemical:
+                            chemical['name'] = edit_name
+                            chemical['stock'] = edit_stock
+                            chemical['rate'] = edit_rate
+                            auto_save()
+                            show_alert("Chemical updated successfully!", "success")
+                            st.rerun()
+
+                        if delete_chemical:
+                            st.session_state.chemicals = [chem for chem in st.session_state.chemicals if chem['id'] != chemical_id]
+                            auto_save()
+                            show_alert("Chemical deleted successfully!", "success")
+                            st.rerun()
         # Show all chemicals
         with st.expander("📋 All Chemicals Stock", expanded=True):
             if st.session_state.chemicals:
