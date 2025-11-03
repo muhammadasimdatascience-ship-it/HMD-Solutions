@@ -54,15 +54,15 @@ st.markdown(
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     }
 
-    /* Section header */
-    .section-header {
-        background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
-        color: white;
-        padding: 20px;
-        border-radius: 15px;
-        margin: 20px 0;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-    }
+ /* Section header */
+.section-header {
+    background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
+    color: #001F3F; /* Deep navy blue text */
+    padding: 20px;
+    border-radius: 15px;
+    margin: 20px 0;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
 
     /* Cards */
     .card {
@@ -2247,6 +2247,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
