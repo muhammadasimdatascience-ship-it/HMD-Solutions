@@ -493,7 +493,7 @@ def create_vendor_ledger_pdf(vendor_type=None, vendor_name=None):
         parent=styles['Heading1'],
         fontSize=16,
         spaceAfter=20,
-        textColor=colors.HexColor('#000000'),
+        textColor=colors.HexColor('#121212'),
         alignment=1
     )
 
@@ -547,7 +547,7 @@ def create_vendor_ledger_pdf(vendor_type=None, vendor_name=None):
         # Create table
         table = Table(data, repeatRows=1)
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#000000')),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#121212')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -683,7 +683,7 @@ def create_stock_pdf():
         parent=styles['Heading1'],
         fontSize=16,
         spaceAfter=20,
-        textColor=colors.HexColor('#000000'),
+        textColor=colors.HexColor('#121212'),
         alignment=1
     )
 
@@ -714,7 +714,7 @@ def create_stock_pdf():
         # Create table
         table = Table(data, repeatRows=1)
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#000000')),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#121212')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -945,7 +945,7 @@ def main():
     with st.sidebar:
         st.markdown(
             """
-            <div style="background: linear-gradient(135deg, #000000 0%, #feb47b 100%); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;">
+            <div style="background: linear-gradient(135deg, #121212 0%, #feb47b 100%); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;">
                 <h3>Navigation</h3>
             </div>
             """,
@@ -2237,7 +2237,7 @@ def main():
     st.markdown(
         """
         <div style='text-align: center; background-color: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 10px;'>
-            <h3>data<span style='color: #000000;'>nex</span><span style='color: #3498db;'>Solution</span></h3>
+            <h3>data<span style='color: #121212;'>nex</span><span style='color: #3498db;'>Solution</span></h3>
             <p>For any query please feel free to contact: <a href='tel:+923207429422'>+92-3207429422</a></p>
         </div>
         """,
@@ -2247,6 +2247,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
