@@ -2478,7 +2478,7 @@ def main():
     # Sidebar navigation
     st.sidebar.markdown("""
     <div style='background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); padding: 2rem; border-radius: 15px; color: white; text-align: center;'>
-        <h2> Navigation</h2>
+        <h2> HMD Solutions </h2>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2536,5 +2536,6 @@ def main():
 if __name__ == "__main__":
     main()
     render_footer()
+
 
 
