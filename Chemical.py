@@ -1435,7 +1435,7 @@ def main():
     st.markdown(
         """
         <div class="main-header">
-            <h1>🧪 Green Chemical Management System</h1>
+            <h1>HMD Solutions</h1>
             <p>Professional Inventory & Vendor Management | Streamlined Production</p>
         </div>
         """,
@@ -1485,7 +1485,7 @@ def main():
         # Welcome section
         if not st.session_state.chemicals and not st.session_state.packaging_materials:
             st.info(
-                "👋 Welcome to Green Chemical Management System! Start by adding chemicals and packaging materials.")
+                "👋 Welcome to HMD Solutions! Start by adding chemicals and packaging materials.")
             col1, col2, col3 = st.columns(3)
             with col1:
                 if st.button("🧪 Add Chemicals", use_container_width=True, key="add_chem_btn"):
@@ -1754,7 +1754,7 @@ def main():
                             st.download_button(
                                 label="⬇️ Download Stock PDF",
                                 data=pdf_buffer,
-                                file_name=f"Green_Chemical_Stock_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
+                                file_name=f"HMD Solutions_Chemical_Stock_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
                                 mime="application/pdf",
                                 use_container_width=True,
                                 key="download_stock_pdf"
@@ -2050,7 +2050,7 @@ def main():
                         st.download_button(
                             label="⬇️ Download Complete Vendor Ledger PDF",
                             data=pdf_buffer,
-                            file_name=f"Green_Complete_Vendor_Ledger_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                            file_name=f"HMD Solutions_Complete_Vendor_Ledger_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                             mime="application/pdf",
                             use_container_width=True,
                             key="download_complete_vendor_pdf"
@@ -2074,7 +2074,7 @@ def main():
                                 st.download_button(
                                     label=f"⬇️ Download {vendor_type.title()} Vendor PDF",
                                     data=pdf_buffer,
-                                    file_name=f"Green_{vendor_type.title()}_Vendor_Ledger_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                                    file_name=f"HMD Solutions_{vendor_type.title()}_Vendor_Ledger_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                                     mime="application/pdf",
                                     use_container_width=True,
                                     key=f"download_{vendor_type}_pdf"
@@ -2296,7 +2296,7 @@ def main():
                             st.download_button(
                                 label="⬇️ Download Chemical Report",
                                 data=pdf_buffer,
-                                file_name=f"Green_Chemical_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
+                                file_name=f"HMD Solutions_Chemical_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
                                 mime="application/pdf",
                                 use_container_width=True,
                                 key="dl_chem_report"
@@ -2352,7 +2352,7 @@ def main():
                             st.download_button(
                                 label="⬇️ Download Vendor Report",
                                 data=pdf_buffer,
-                                file_name=f"Green_Vendor_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
+                                file_name=f"HMD Solutions_Vendor_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
                                 mime="application/pdf",
                                 use_container_width=True,
                                 key="dl_vendor_report"
@@ -2516,7 +2516,7 @@ def main():
                     st.download_button(
                         label="⬇️ Download CSV Files (ZIP)",
                         data=csv_buffer,
-                        file_name=f"Green_Data_Export_{datetime.now().strftime('%Y%m%d_%H%M')}.zip",
+                        file_name=f"HMD Solutions_Data_Export_{datetime.now().strftime('%Y%m%d_%H%M')}.zip",
                         mime="application/zip",
                         use_container_width=True,
                         key="download_csv"
@@ -2530,7 +2530,7 @@ def main():
                     st.download_button(
                         label="⬇️ Download Sample Template (ZIP)",
                         data=sample_buffer,
-                        file_name="Green_Data_Import_Template.zip",
+                        file_name="HMD Soluions_Data_Import_Template.zip",
                         mime="application/zip",
                         use_container_width=True,
                         key="download_sample"
@@ -2647,7 +2647,7 @@ def main():
     st.markdown(
         """
         <div style='text-align: center; background-color: #FFFFFF; padding: 20px; border-radius: 10px; border: 2px solid #1E90FF;'>
-            <h3 style='color: #1E90FF;'>Green<span style='color: #00FF00;'>Chemical</span>Solutions</h3>
+            <h3 style='color: #1E90FF;'>Data<span style='color: #00FF00;'>nex</span>Solutions</h3>
             <p style='color: #000000;'>For any query please feel free to contact: <a href='tel:+923207429422' style='color: #1E90FF;'>+92-3207429422</a></p>
         </div>
         """,
@@ -2657,3 +2657,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
