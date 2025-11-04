@@ -30,8 +30,8 @@ except ImportError:
 
 # Set page configuration
 st.set_page_config(
-    page_title="HMD Solutions - Business Management System",
-    page_icon="📊",
+    page_title="HMD Solutions",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -2436,7 +2436,7 @@ def render_footer():
     st.markdown("---")
     st.markdown("""
     <div class="footer">
-        <h3>🚀 DatanexSolution</h3>
+        <h3> DatanexSolution</h3>
         <p>Advanced Business Management Solutions</p>
         <p>For any query please feel free to contact: <strong>+92-3207429422</strong></p>
         <p>📧 Email: info@datanexsolution.com | 🌐 Website: www.datanexsolution.com</p>
@@ -2478,7 +2478,7 @@ def main():
     # Sidebar navigation
     st.sidebar.markdown("""
     <div style='background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); padding: 2rem; border-radius: 15px; color: white; text-align: center;'>
-        <h2>🚀 Navigation</h2>
+        <h2> Navigation</h2>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2513,7 +2513,7 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.markdown("""
     <div style='text-align: center; color: #666;'>
-        <h4>🚀 DatanexSolution</h4>
+        <h4> DatanexSolution</h4>
         <p>For any query please feel free to contact:</p>
         <p><strong>📞 +92-3207429422</strong></p>
     </div>
@@ -2536,3 +2536,4 @@ def main():
 if __name__ == "__main__":
     main()
     render_footer()
+
