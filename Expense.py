@@ -235,7 +235,7 @@ def init_database():
         )
     ''')
 
-    # Create expenses table with category column
+    # Create expenses table with category and status columns
     c.execute('''
         CREATE TABLE IF NOT EXISTS expenses (
             id TEXT PRIMARY KEY,
@@ -282,6 +282,13 @@ def init_database():
     except sqlite3.OperationalError:
         c.execute("ALTER TABLE expenses ADD COLUMN category TEXT DEFAULT ''")
         st.info("Updated expenses table with category column")
+
+    # Check if status column exists in expenses table and add if missing
+    try:
+        c.execute("SELECT status FROM expenses LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE expenses ADD COLUMN status TEXT DEFAULT 'Pending'")
+        st.info("Updated expenses table with status column")
 
     conn.commit()
     conn.close()
@@ -742,14 +749,15 @@ class ExpenseTracker:
                         'status': row[7]
                     }
                 else:
+                    # Handle older schema without status column
                     expense = {
                         'id': row[0],
                         'type': row[1],
                         'description': row[2],
                         'amount': row[3],
-                        'category': "",
-                        'employee_name': row[4] if len(row) > 4 else "",
-                        'date': row[5] if len(row) > 5 else row[4],
+                        'category': row[4] if len(row) > 4 else "",
+                        'employee_name': row[5] if len(row) > 5 else "",
+                        'date': row[6] if len(row) > 6 else row[5],
                         'status': 'Pending'
                     }
                 expenses.append(expense)
@@ -786,9 +794,9 @@ class ExpenseTracker:
                         'type': row[1],
                         'description': row[2],
                         'amount': row[3],
-                        'category': "",
-                        'employee_name': row[4] if len(row) > 4 else "",
-                        'date': row[5] if len(row) > 5 else row[4],
+                        'category': row[4] if len(row) > 4 else "",
+                        'employee_name': row[5] if len(row) > 5 else "",
+                        'date': row[6] if len(row) > 6 else row[5],
                         'status': 'Pending'
                     }
             return None
@@ -1230,6 +1238,121 @@ class PDFGenerator:
             st.error(f"Error generating PDF: {str(e)}")
             return None
 
+    def generate_individual_employee_ledger_pdf(self, employee, ledger, start_date=None, end_date=None):
+        """Generate individual employee ledger PDF"""
+        if not FPDF_AVAILABLE:
+            st.error("PDF generation is not available. Please install fpdf.")
+            return None
+            
+        try:
+            pdf = FPDF()
+            pdf.add_page()
+
+            # Header with company name from settings
+            pdf.set_font('Arial', 'B', 20)
+            pdf.cell(0, 10, self.settings['company_name'], 0, 1, 'C')
+            pdf.set_font('Arial', 'B', 16)
+            pdf.cell(0, 10, 'Individual Employee Ledger', 0, 1, 'C')
+            pdf.ln(5)
+
+            # Report period
+            pdf.set_font('Arial', 'I', 12)
+            period_text = f"Period: {start_date} to {end_date}" if start_date and end_date else "All Time Period"
+            pdf.cell(0, 10, period_text, 0, 1, 'C')
+            pdf.ln(10)
+
+            # Employee information
+            pdf.set_font('Arial', 'B', 14)
+            pdf.cell(0, 10, f'Employee: {employee["name"]}', 0, 1)
+            pdf.set_font('Arial', '', 12)
+            
+            # Employee details
+            if employee.get('department'):
+                pdf.cell(0, 8, f'Department: {employee["department"]}', 0, 1)
+            if employee.get('position'):
+                pdf.cell(0, 8, f'Position: {employee["position"]}', 0, 1)
+            if employee.get('phone'):
+                pdf.cell(0, 8, f'Phone: {employee["phone"]}', 0, 1)
+            if employee.get('email'):
+                pdf.cell(0, 8, f'Email: {employee["email"]}', 0, 1)
+            if employee.get('join_date'):
+                pdf.cell(0, 8, f'Join Date: {employee["join_date"]}', 0, 1)
+                
+            pdf.cell(0, 8, f'Report Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
+            pdf.ln(10)
+
+            # Get transactions and summary
+            transactions = ledger.get_employee_transactions(employee['id'], start_date, end_date)
+            summary = ledger.get_employee_summary(employee['id'], start_date, end_date)
+
+            # Summary
+            pdf.set_font('Arial', 'B', 12)
+            pdf.cell(0, 10, 'Financial Summary:', 0, 1)
+            pdf.set_font('Arial', '', 12)
+            pdf.cell(0, 8, f'Initial Balance: {self.settings["currency"]} {employee["initial_balance"]:.2f}', 0, 1)
+            pdf.cell(0, 8, f'Total Expenses: {self.settings["currency"]} {summary["total_expenses"]:.2f}', 0, 1)
+            pdf.cell(0, 8, f'Total Payments: {self.settings["currency"]} {summary["total_payments"]:.2f}', 0, 1)
+
+            # Balance with color
+            balance_status = '(Due)' if summary['balance'] > 0 else '(Advance)' if summary['balance'] < 0 else ''
+            if summary['balance'] > 0:
+                pdf.set_text_color(255, 0, 0)  # Red for due
+            else:
+                pdf.set_text_color(0, 128, 0)  # Green for advance
+                
+            pdf.cell(0, 8, f'Current Balance: {self.settings["currency"]} {abs(summary["balance"]):.2f} {balance_status}', 0, 1)
+            pdf.set_text_color(0, 0, 0)  # Reset to black
+            pdf.ln(10)
+
+            # Transactions table
+            if transactions:
+                pdf.set_font('Arial', 'B', 12)
+                pdf.cell(0, 10, 'Transaction History:', 0, 1)
+
+                # Table header
+                pdf.set_fill_color(79, 129, 189)
+                pdf.set_text_color(255, 255, 255)
+                pdf.cell(25, 10, 'Date', 1, 0, 'C', True)
+                pdf.cell(25, 10, 'Type', 1, 0, 'C', True)
+                pdf.cell(80, 10, 'Description', 1, 0, 'C', True)
+                pdf.cell(20, 10, 'Category', 1, 0, 'C', True)
+                pdf.cell(30, 10, 'Amount', 1, 1, 'C', True)
+
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_font('Arial', '', 8)
+                for t in transactions:
+                    # Alternate row colors
+                    if transactions.index(t) % 2 == 0:
+                        pdf.set_fill_color(240, 240, 240)
+                    else:
+                        pdf.set_fill_color(255, 255, 255)
+
+                    pdf.cell(25, 8, t['date'], 1, 0, 'C', True)
+                    pdf.cell(25, 8, t['type'].title(), 1, 0, 'C', True)
+                    pdf.cell(80, 8, t['description'][:50], 1, 0, 'C', True)
+                    pdf.cell(20, 8, t.get('category', '')[:15], 1, 0, 'C', True)
+
+                    # Color code amounts
+                    if t['type'] == 'expense':
+                        pdf.set_text_color(255, 0, 0)
+                    else:
+                        pdf.set_text_color(0, 128, 0)
+                    pdf.cell(30, 8, f"{self.settings['currency']} {t['amount']:.2f}", 1, 1, 'C', True)
+                    pdf.set_text_color(0, 0, 0)
+            else:
+                pdf.cell(0, 10, 'No transactions found for the selected period.', 0, 1)
+
+            # Footer with company info
+            pdf.ln(15)
+            pdf.set_font('Arial', 'I', 8)
+            pdf.cell(0, 10, f'Generated by {self.settings["company_name"]} Business Management System', 0, 1, 'C')
+            pdf.cell(0, 5, f'Contact: {self.settings["company_phone"]} | Email: {self.settings["company_email"]}', 0, 1, 'C')
+
+            return pdf
+        except Exception as e:
+            st.error(f"Error generating individual employee ledger PDF: {str(e)}")
+            return None
+
 def render_dashboard(ledger, expense_tracker, pdf_generator):
     st.markdown('<div class="sub-header">📊 Business Dashboard</div>', unsafe_allow_html=True)
 
@@ -1298,18 +1421,30 @@ def render_dashboard(ledger, expense_tracker, pdf_generator):
                 )
     
     with col4:
-        if st.button("📈 Expense Summary", use_container_width=True, key="exp_summary"):
-            expenses = expense_tracker.get_expenses()
-            pdf = pdf_generator.generate_expense_report_pdf(expenses, "Summary")
-            if pdf:
-                pdf_output = pdf.output(dest='S').encode('latin1')
-                st.download_button(
-                    label="Download PDF",
-                    data=pdf_output,
-                    file_name=f"expense_summary_{datetime.now().strftime('%Y%m%d')}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
+        # Individual Employee Ledger Downloads
+        st.markdown("#### 👤 Employee Ledgers")
+        employees = ledger.get_employees()
+        if employees:
+            selected_employee = st.selectbox("Select Employee", 
+                                           options=[emp['id'] for emp in employees],
+                                           format_func=lambda x: next(emp['name'] for emp in employees if emp['id'] == x),
+                                           key="dashboard_emp_select")
+            
+            if selected_employee:
+                employee = ledger.get_employee(selected_employee)
+                if st.button("📄 Download Employee Ledger", use_container_width=True, key="dashboard_emp_ledger"):
+                    pdf = pdf_generator.generate_individual_employee_ledger_pdf(employee, ledger)
+                    if pdf:
+                        pdf_output = pdf.output(dest='S').encode('latin1')
+                        st.download_button(
+                            label="📥 Download PDF",
+                            data=pdf_output,
+                            file_name=f"ledger_{employee['name']}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
+        else:
+            st.info("No employees available")
 
     # Recent activity
     col1, col2 = st.columns(2)
@@ -1400,7 +1535,7 @@ def render_employee_ledger(ledger, pdf_generator):
             
             for emp in employees:
                 with st.container():
-                    col1, col2, col3, col4 = st.columns([3, 2, 1, 1])
+                    col1, col2, col3, col4, col5 = st.columns([3, 2, 1, 1, 1])
                     
                     with col1:
                         st.write(f"**{emp['name']}**")
@@ -1424,10 +1559,23 @@ def render_employee_ledger(ledger, pdf_generator):
                             st.info("💰 Settled")
                     
                     with col3:
+                        if st.button("📄 PDF", key=f"pdf_emp_{emp['id']}", use_container_width=True):
+                            pdf = pdf_generator.generate_individual_employee_ledger_pdf(emp, ledger)
+                            if pdf:
+                                pdf_output = pdf.output(dest='S').encode('latin1')
+                                st.download_button(
+                                    label="Download Ledger",
+                                    data=pdf_output,
+                                    file_name=f"ledger_{emp['name']}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                                    mime="application/pdf",
+                                    key=f"download_emp_{emp['id']}"
+                                )
+                    
+                    with col4:
                         if st.button("✏️ Edit", key=f"edit_emp_{emp['id']}", use_container_width=True):
                             st.session_state.editing_employee = emp['id']
                     
-                    with col4:
+                    with col5:
                         if st.button("🗑️ Delete", key=f"delete_emp_{emp['id']}", use_container_width=True):
                             st.session_state.deleting_employee = emp['id']
                     
@@ -1677,18 +1825,39 @@ def render_employee_ledger(ledger, pdf_generator):
                     transactions = filtered_transactions
                 
                 # Download PDF for this employee
-                if st.button("📄 Download Employee Ledger PDF", key="emp_ledger_pdf"):
-                    pdf = pdf_generator.generate_employee_ledger_pdf(
-                        employee['name'], transactions, summary, start_date.isoformat(), end_date.isoformat()
-                    )
-                    if pdf:
-                        pdf_output = pdf.output(dest='S').encode('latin1')
-                        st.download_button(
-                            label="📥 Download PDF",
-                            data=pdf_output,
-                            file_name=f"ledger_{employee['name']}_{datetime.now().strftime('%Y%m%d')}.pdf",
-                            mime="application/pdf"
+                st.markdown("### 📄 Download Employee Ledger")
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("📥 Download Full Ledger PDF", key="emp_ledger_pdf_full", use_container_width=True):
+                        pdf = pdf_generator.generate_individual_employee_ledger_pdf(employee, ledger)
+                        if pdf:
+                            pdf_output = pdf.output(dest='S').encode('latin1')
+                            st.download_button(
+                                label="📥 Download PDF",
+                                data=pdf_output,
+                                file_name=f"ledger_{employee['name']}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                                mime="application/pdf",
+                                key="download_ledger_full"
+                            )
+                
+                with col2:
+                    if st.button("📅 Download Filtered Ledger PDF", key="emp_ledger_pdf_filtered", use_container_width=True):
+                        filtered_transactions = ledger.get_employee_transactions(
+                            selected_employee, start_date.isoformat(), end_date.isoformat()
                         )
+                        filtered_summary = ledger.get_employee_summary(selected_employee, start_date.isoformat(), end_date.isoformat())
+                        pdf = pdf_generator.generate_employee_ledger_pdf(
+                            employee['name'], filtered_transactions, filtered_summary, start_date.isoformat(), end_date.isoformat()
+                        )
+                        if pdf:
+                            pdf_output = pdf.output(dest='S').encode('latin1')
+                            st.download_button(
+                                label="📥 Download PDF",
+                                data=pdf_output,
+                                file_name=f"ledger_{employee['name']}_{start_date}_{end_date}.pdf",
+                                mime="application/pdf",
+                                key="download_ledger_filtered"
+                            )
                 
                 # Display transactions
                 if transactions:
@@ -1948,6 +2117,30 @@ def render_reports_analytics(ledger, expense_tracker, pdf_generator):
                     mime="application/pdf",
                     use_container_width=True
                 )
+    
+    with col3:
+        # Individual Employee Ledgers
+        st.markdown("#### 👤 Employee Ledgers")
+        employees = ledger.get_employees()
+        if employees:
+            selected_employee = st.selectbox("Select Employee", 
+                                           options=[emp['id'] for emp in employees],
+                                           format_func=lambda x: next(emp['name'] for emp in employees if emp['id'] == x),
+                                           key="reports_emp_select")
+            
+            if selected_employee:
+                employee = ledger.get_employee(selected_employee)
+                if st.button("📄 Download Employee Ledger", use_container_width=True, key="reports_emp_ledger"):
+                    pdf = pdf_generator.generate_individual_employee_ledger_pdf(employee, ledger)
+                    if pdf:
+                        pdf_output = pdf.output(dest='S').encode('latin1')
+                        st.download_button(
+                            label="📥 Download PDF",
+                            data=pdf_output,
+                            file_name=f"ledger_{employee['name']}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
 
     # Data Import/Export Section
     st.markdown("### 📁 Data Import & Export")
