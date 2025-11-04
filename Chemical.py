@@ -1447,7 +1447,7 @@ def main():
         st.markdown(
             """
             <div style="background: linear-gradient(135deg, #1E90FF 0%, #0047AB 100%); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px; border: 2px solid #1E90FF;">
-                <h3>📊 Navigation</h3>
+                <h3> Navigation</h3>
             </div>
             """,
             unsafe_allow_html=True
@@ -2657,5 +2657,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
