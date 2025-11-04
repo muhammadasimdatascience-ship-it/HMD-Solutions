@@ -1071,7 +1071,7 @@ def main():
         st.markdown(
             """
             <div style="background: linear-gradient(135deg, #004e92 0%, #0077b6 100%); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px; border: 2px solid #004e92;">
-                <h3>📊 Navigation</h3>
+                <h3>HMD Solutions</h3>
             </div>
             """,
             unsafe_allow_html=True
@@ -1106,7 +1106,7 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
 
         if not st.session_state.chemicals and not st.session_state.packaging_materials:
-            st.info("👋 Welcome to Green Chemical Management System! Start by adding chemicals and packaging materials.")
+            st.info("👋 Welcome to HMD Solutions Chemical Management System!.")
             col1, col2, col3 = st.columns(3)
             with col1:
                 st.markdown('<div class="green-button">', unsafe_allow_html=True)
@@ -1999,8 +1999,8 @@ def main():
     st.markdown(
         """
         <div style='text-align: center; background-color: #004e92; padding: 20px; border-radius: 10px; color: white; border: 2px solid #004e92;'>
-            <h3>Green Chemical Management System</h3>
-            <p>Professional Inventory & Production Management Solution</p>
+            <h3>Datanex Solutions</h3>
+            <p>for any query +923207429422</p>
         </div>
         """,
         unsafe_allow_html=True
@@ -2008,3 +2008,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
