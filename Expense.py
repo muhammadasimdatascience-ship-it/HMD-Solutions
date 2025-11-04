@@ -30,7 +30,7 @@ except ImportError:
 
 # Set page configuration
 st.set_page_config(
-    page_title="HMD Solutions",
+    page_title="HMD Solutions - Business Management System",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -220,7 +220,7 @@ def init_database():
         )
     ''')
 
-    # Create transactions table
+    # Create transactions table with category column
     c.execute('''
         CREATE TABLE IF NOT EXISTS transactions (
             id TEXT PRIMARY KEY,
@@ -235,7 +235,7 @@ def init_database():
         )
     ''')
 
-    # Create expenses table
+    # Create expenses table with category column
     c.execute('''
         CREATE TABLE IF NOT EXISTS expenses (
             id TEXT PRIMARY KEY,
@@ -269,26 +269,19 @@ def init_database():
         VALUES ('default', 'HMD Solutions', 'Karachi, Pakistan', '+92-3207429422', 'info@hmdsolutions.com', 'PKR')
     ''')
 
-    # Check and add missing columns to employees table
-    c.execute("PRAGMA table_info(employees)")
-    existing_columns = [column[1] for column in c.fetchall()]
-    
-    # Add missing columns if they don't exist
-    missing_columns = {
-        'phone': 'TEXT DEFAULT ""',
-        'email': 'TEXT DEFAULT ""', 
-        'department': 'TEXT DEFAULT ""',
-        'position': 'TEXT DEFAULT ""',
-        'join_date': 'TEXT DEFAULT ""'
-    }
-    
-    for column_name, column_type in missing_columns.items():
-        if column_name not in existing_columns:
-            try:
-                c.execute(f'ALTER TABLE employees ADD COLUMN {column_name} {column_type}')
-                st.success(f"Added missing column: {column_name}")
-            except Exception as e:
-                st.warning(f"Could not add column {column_name}: {str(e)}")
+    # Check if category column exists in transactions table and add if missing
+    try:
+        c.execute("SELECT category FROM transactions LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE transactions ADD COLUMN category TEXT DEFAULT ''")
+        st.info("Updated transactions table with category column")
+
+    # Check if category column exists in expenses table and add if missing
+    try:
+        c.execute("SELECT category FROM expenses LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE expenses ADD COLUMN category TEXT DEFAULT ''")
+        st.info("Updated expenses table with category column")
 
     conn.commit()
     conn.close()
@@ -1517,9 +1510,7 @@ def render_employee_ledger(ledger, pdf_generator):
             
             join_date = st.date_input("Join Date", value=datetime.now())
             
-            # FIXED: Added proper submit button
-            submitted = st.form_submit_button("➕ Add Employee", use_container_width=True)
-            if submitted:
+            if st.form_submit_button("➕ Add Employee", use_container_width=True):
                 if name:
                     employee_id = ledger.add_employee(name, initial_balance, phone, email, department, position, join_date.isoformat())
                     if employee_id:
@@ -1634,9 +1625,7 @@ def render_employee_ledger(ledger, pdf_generator):
                     category = st.text_input("Category", placeholder="e.g., Travel, Office, Food")
                     date = st.date_input("Date *", value=datetime.now())
                 
-                # FIXED: Added proper submit button
-                submitted = st.form_submit_button("💾 Record Transaction", use_container_width=True)
-                if submitted:
+                if st.form_submit_button("💾 Record Transaction", use_container_width=True):
                     if description and amount > 0:
                         transaction_id = ledger.add_transaction(employee_id, transaction_type, amount, description, category, date.isoformat())
                         if transaction_id:
@@ -1789,9 +1778,7 @@ def render_expense_dashboard(expense_tracker, ledger, pdf_generator):
             
             status = st.selectbox("Status", ["Pending", "Approved", "Rejected", "Paid"])
             
-            # FIXED: Added proper submit button
-            submitted = st.form_submit_button("💾 Add Expense", use_container_width=True)
-            if submitted:
+            if st.form_submit_button("💾 Add Expense", use_container_width=True):
                 if description and amount > 0:
                     emp_name = employee_name if expense_type == "employee" else None
                     expense_id = expense_tracker.add_expense(expense_type, description, amount, category, emp_name, date.isoformat(), status)
@@ -2233,18 +2220,15 @@ def render_settings(settings_manager):
         currency = st.selectbox("Currency", ["PKR", "USD", "EUR", "GBP"], 
                                index=["PKR", "USD", "EUR", "GBP"].index(settings['currency']))
         
-        # FIXED: Added proper submit buttons
         col1, col2 = st.columns(2)
         with col1:
-            save_submitted = st.form_submit_button("💾 Save Settings", use_container_width=True)
-            if save_submitted:
+            if st.form_submit_button("💾 Save Settings", use_container_width=True):
                 settings_manager.update_settings(company_name, company_address, company_phone, company_email, currency)
                 st.success("✅ Settings saved successfully!")
                 st.rerun()
         
         with col2:
-            reset_submitted = st.form_submit_button("🔄 Reset to Default", use_container_width=True)
-            if reset_submitted:
+            if st.form_submit_button("🔄 Reset to Default", use_container_width=True):
                 settings_manager.update_settings(
                     "HMD Solutions", 
                     "Karachi, Pakistan", 
@@ -2259,18 +2243,18 @@ def render_footer():
     st.markdown("---")
     st.markdown("""
     <div class="footer">
-        <h3>DatanexSolution</h3>
+        <h3>🚀 DatanexSolution</h3>
         <p>Advanced Business Management Solutions</p>
         <p>For any query please feel free to contact: <strong>+92-3207429422</strong></p>
-        <p>📧 Email: muhammad.asim.data.science@gmail.com | 🌐 Website: https://www.linkedin.com/in/muhammad-asim-iqbal-1704ba23a/</p>
+        <p>📧 Email: info@datanexsolution.com | 🌐 Website: www.datanexsolution.com</p>
         <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.8;">
-            &copy; 2024 Datanex Solutions. All rights reserved.
+            &copy; 2024 HMD Solutions. All rights reserved.
         </p>
     </div>
     """, unsafe_allow_html=True)
 
 def main():
-    st.markdown('<div class="main-header"> HMD Solutions</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🚀 HMD Solutions - Business Management System</div>', unsafe_allow_html=True)
 
     # Initialize systems
     ledger = EmployeeLedger()
@@ -2301,7 +2285,7 @@ def main():
     # Sidebar navigation
     st.sidebar.markdown("""
     <div style='background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); padding: 2rem; border-radius: 15px; color: white; text-align: center;'>
-        <h2>HMD Solutions</h2>
+        <h2>🚀 Navigation</h2>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2329,14 +2313,14 @@ def main():
         
     if st.sidebar.button("💰 Add Expense", use_container_width=True, key="sidebar_add_exp"):
         st.session_state.current_page = "💰 Expense Management"
-        st.session_state.expense_active_tab = "➕ Add Expense"
+        st.session_state.active_tab = "➕ Add Expense"
         st.rerun()
 
     # Footer in sidebar
     st.sidebar.markdown("---")
     st.sidebar.markdown("""
     <div style='text-align: center; color: #666;'>
-        <h4>DatanexSolution</h4>
+        <h4>🚀 DatanexSolution</h4>
         <p>For any query please feel free to contact:</p>
         <p><strong>📞 +92-3207429422</strong></p>
     </div>
@@ -2359,4 +2343,3 @@ def main():
 if __name__ == "__main__":
     main()
     render_footer()
-
