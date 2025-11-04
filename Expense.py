@@ -2439,7 +2439,7 @@ def render_footer():
         <h3> DatanexSolution</h3>
         <p>Advanced Business Management Solutions</p>
         <p>For any query please feel free to contact: <strong>+92-3207429422</strong></p>
-        <p>📧 Email: info@datanexsolution.com | 🌐 Website: www.datanexsolution.com</p>
+        <p>📧 Email: muhammad.asim.data.science@gmail.comm | Website: www.datanexsolution.com</p>
         <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.8;">
             &copy; 2024 HMD Solutions. All rights reserved.
         </p>
@@ -2447,7 +2447,7 @@ def render_footer():
     """, unsafe_allow_html=True)
 
 def main():
-    st.markdown('<div class="main-header">🚀 HMD Solutions - Business Management System</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header"> HMD Solutions - Business Management System</div>', unsafe_allow_html=True)
 
     # Initialize systems
     ledger = EmployeeLedger()
@@ -2536,4 +2536,5 @@ def main():
 if __name__ == "__main__":
     main()
     render_footer()
+
 
