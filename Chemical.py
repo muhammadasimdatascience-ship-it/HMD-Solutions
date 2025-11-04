@@ -17,8 +17,8 @@ import zipfile
 
 # Page configuration with updated settings
 st.set_page_config(
-    page_title="Green - Chemical Management System",
-    page_icon="🧪",
+    page_title="HMD Solutions - Chemical Management System",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -304,7 +304,7 @@ def load_data():
             st.session_state.production_history = data.get('production_history', [])
             st.session_state.product_details = data.get('product_details', {})
             st.session_state.settings = data.get('settings', {
-                'company_name': "Green",
+                'company_name': "HMD Solutions",
                 'default_batch_size': 500,
                 'low_stock_threshold': 5.0,
                 'packaging_low_stock': 10
@@ -338,7 +338,7 @@ if 'product_details' not in st.session_state:
 
 if 'settings' not in st.session_state:
     st.session_state.settings = {
-        'company_name': "Green",
+        'company_name': "HMD Solutions",
         'default_batch_size': 500,
         'low_stock_threshold': 5.0,
         'packaging_low_stock': 10
@@ -568,18 +568,18 @@ def create_vendor_ledger_pdf(vendor_type=None, vendor_name=None):
     # Filter data based on vendor type or vendor name
     if vendor_type:
         filtered_data = [v for v in st.session_state.vendor_ledger if v['vendor_type'] == vendor_type]
-        title_text = f"GREEN - {vendor_type.upper()} VENDOR LEDGER REPORT"
+        title_text = f"HMD Solutions - {vendor_type.upper()} VENDOR LEDGER REPORT"
         filtered_payments = [p for p in st.session_state.vendor_payments
                              if any(v['vendor_name'] == p['vendor_name']
                                     for v in st.session_state.vendor_ledger
                                     if v['vendor_type'] == vendor_type)]
     elif vendor_name:
         filtered_data = [v for v in st.session_state.vendor_ledger if v['vendor_name'] == vendor_name]
-        title_text = f"GREEN - {vendor_name.upper()} LEDGER REPORT"
+        title_text = f"HMD Solutions - {vendor_name.upper()} LEDGER REPORT"
         filtered_payments = [p for p in st.session_state.vendor_payments if p['vendor_name'] == vendor_name]
     else:
         filtered_data = st.session_state.vendor_ledger
-        title_text = "GREEN - COMPLETE VENDOR LEDGER REPORT"
+        title_text = "HMD Solutions - COMPLETE VENDOR LEDGER REPORT"
         filtered_payments = st.session_state.vendor_payments
 
     # Title Section
@@ -588,7 +588,7 @@ def create_vendor_ledger_pdf(vendor_type=None, vendor_name=None):
 
     # Company Info
     company_info = Paragraph(
-        f"<b>Company:</b> Green | <b>Report Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"<b>Company:</b> HMD Solutions | <b>Report Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         styles['Normal']
     )
     elements.append(company_info)
@@ -722,7 +722,7 @@ def create_vendor_ledger_pdf(vendor_type=None, vendor_name=None):
     except:
         pass
 
-    signature_text = Paragraph("Accountant Signature<br/><b>Green</b>",
+    signature_text = Paragraph("Accountant Signature<br/><b>HMD Solutions</b>",
                                ParagraphStyle(
                                    'SignatureStyle',
                                    parent=styles['Normal'],
@@ -755,7 +755,7 @@ def create_stock_pdf():
     )
 
     # Title Section
-    title = Paragraph("GREEN - CHEMICAL STOCK REPORT", title_style)
+    title = Paragraph("HMD Solutions - CHEMICAL STOCK REPORT", title_style)
     elements.append(title)
     elements.append(Spacer(1, 15))
 
@@ -834,7 +834,7 @@ def create_stock_pdf():
     except:
         pass
 
-    signature_text = Paragraph("Accountant Signature<br/><b>Green</b>",
+    signature_text = Paragraph("Accountant Signature<br/><b>HMD Solutions</b>",
                                ParagraphStyle(
                                    'SignatureStyle',
                                    parent=styles['Normal'],
@@ -867,7 +867,7 @@ def create_production_details_pdf(product_name, production_data):
     )
     
     # Title Section
-    title = Paragraph(f"GREEN - {product_name} PRODUCTION DETAILS", title_style)
+    title = Paragraph(f"HMD Solutions - {product_name} PRODUCTION DETAILS", title_style)
     elements.append(title)
     
     # Product Information
@@ -1184,7 +1184,7 @@ def manage_product_details():
                     st.download_button(
                         label="📄 Download PDF",
                         data=pdf_buffer,
-                        file_name=f"Green_{product_name}_Details_{datetime.now().strftime('%Y%m%d')}.pdf",
+                        file_name=f"HMD Solutions_{product_name}_Details_{datetime.now().strftime('%Y%m%d')}.pdf",
                         mime="application/pdf",
                         key=f"download_{product_name}"
                     )
@@ -1326,7 +1326,7 @@ def enhanced_production_management():
                 st.download_button(
                     label="📄 Download Production Report PDF",
                     data=pdf_buffer,
-                    file_name=f"Green_{product_select}_Production_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    file_name=f"HMD Solutions_{product_select}_Production_{datetime.now().strftime('%Y%m%d')}.pdf",
                     mime="application/pdf",
                     use_container_width=True,
                     key="download_production_pdf"
@@ -2657,4 +2657,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
