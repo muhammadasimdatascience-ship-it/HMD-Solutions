@@ -4,3 +4,4 @@ Pillow
 plotly
 fpdf
 A4
+reportlab
